@@ -1,3 +1,16 @@
+# Versión 12 — Tarjetas, combates animados y frontera Nigeria–Angola (octubre 2026)
+
+1. **Máximo cinco tarjetas de país:** comprobado el control existente en `puede_solicitar_tarjeta()` y `solicitar_tarjeta()`; el botón se deshabilita al alcanzar cinco y los bots pasan el turno sin robar. Las tarjetas de continente son independientes del límite. Siete casos de regresión comprueban el límite, una quinta carta válida y la separación de continentes.
+2. **Ataques más visibles:** línea luminosa animada entre país de origen y destino, aros pulsantes de ataque/defensa, proyectil desplazándose, etiquetas con los nombres y franja de identificación del jugador y las pérdidas. Se aplica a ataques propios, bots, enfrentamientos con condominios y lanzamientos de misil. La animación no modifica dados, turnos ni tropas.
+3. **Conquistas:** indicador destacado en destino y aviso `PAÍS CONQUISTADO` que persiste aproximadamente cuatro segundos; el aviso anterior no desaparece al comenzar el siguiente ataque del bot. Se mantienen los popups de transferencia de tropas.
+4. **Dados sin bloquear la batalla:** ventana de dados compacta desplazada a la esquina superior derecha del mapa, sin oscurecer el centro; conserva el motivo del cuarto dado y los resultados. La franja superior izquierda muestra las ubicaciones y el progreso del ataque.
+5. **Frontera nueva:** Nigeria ↔ Angola, incorporada en ambos sentidos, sin modificar ninguna otra frontera. Tablero con 72 países y 137 conexiones bidireccionales.
+6. **Pruebas:** siete tests nuevos en `test_correcciones_v12.py`; total **120 unittest**. 40 simulaciones de 2 a 6 jugadores y 8.929 pasos, 3.544 ataques y 2.047 conquistas sin errores. Compilación Python y paquete ZIP validados.
+
+**Pendiente:** revisión visual sobre Windows con Pygame (no instalado en este entorno), especialmente dimensiones y duración de los indicadores cuando el bot está a 4x u 8x.
+
+---
+
 # Versión 11 — Dados, bloqueos, continentales y fronteras (octubre 2026)
 
 1. **Aclaración de dados (pág. 12):** se respeta el cuarto dado reglamentario con defensores >=3 y fuerzas atacantes >=2x, incluso en Combate clásico. Se centralizó el cálculo entre batallas normales y condominios y se muestra la razón en la animación de dados y en el historial. Caso reproducido de tres tiradas sucesivas **3→4→3** sin viento.

@@ -67,7 +67,8 @@ def manejar_clic_mapa(pos, juego, renderer):
     # ── INCORPORAR: clic en pais propio agrega 1 ejercito ────────────
     if fase == FASE_INCORPORAR:
         if juego.es_propietario(pais_clic,jugador.idx):
-            juego.incorporar(pais_clic, 1)
+            if juego.incorporar(pais_clic, 1):
+                renderer.registrar_incorporacion(pais_clic,1,juego,tipo='ejercitos')
             renderer.construir_botones(juego)
         return
 
@@ -107,13 +108,17 @@ def manejar_boton(accion, juego, renderer):
         n=int(accion.rsplit('_',1)[1])
         # Hasta el máximo realmente disponible del fondo elegido.
         for intento in range(min(n,juego.ejercitos_a_colocar),0,-1):
-            if juego.incorporar(pais,intento):break
+            if juego.incorporar(pais,intento):
+                renderer.registrar_incorporacion(pais,intento,juego,tipo='ejercitos')
+                break
         renderer.construir_botones(juego)
         return
     if accion.startswith('ctx_misil_'):
         pais=renderer._contexto_pais
         if not juego.incorporar_misil(pais,reemplazar=accion=='ctx_misil_convertir'):
             renderer.mostrar_popup('MISIL','No se puede incorporar ese misil en el país.')
+        else:
+            renderer.registrar_incorporacion(pais,1,juego,tipo='misil')
         renderer.construir_botones(juego)
         return
     if accion == 'ctx_cerrar':return
@@ -165,6 +170,7 @@ def manejar_boton(accion, juego, renderer):
         if not pais or not juego.incorporar_misil(pais, reemplazar=accion=='misil_convertir'):
             renderer.mostrar_popup('MISIL','Elegí un país propio con clic derecho.\nSe requieren 6 refuerzos o 7 ejércitos en ese país.')
         else:
+            renderer.registrar_incorporacion(pais,1,juego,tipo='misil')
             renderer.pais_seleccionado=None
 
     elif accion == "lanzar_misil":
@@ -173,6 +179,7 @@ def manejar_boton(accion, juego, renderer):
         if not origen or not destino or not juego.lanzar_misil(destino,desde=origen):
             renderer.mostrar_popup('MISIL NO DISPONIBLE','Revisá alcance (1-3), defensa, ejércitos y situación.')
         else:
+            renderer.registrar_combate(origen,destino,None,juego,tipo='misil')
             renderer.pais_objetivo=None
 
     elif accion == "atacar_4":
@@ -186,6 +193,8 @@ def manejar_boton(accion, juego, renderer):
                     return
             res = juego.atacar(renderer.pais_seleccionado, renderer.pais_objetivo)
             if res["ok"]:
+                renderer.registrar_combate(renderer.pais_seleccionado,
+                    renderer.pais_objetivo,res,juego)
                 renderer.mostrar_resultado_dados(res)
                 if res.get("conquisto") and juego.conquista_pendiente:
                     renderer.mostrar_popup_conquista(
@@ -227,7 +236,8 @@ def manejar_boton(accion, juego, renderer):
 
     elif accion == "reagrupar_misil":
         if renderer.pais_seleccionado and renderer.pais_objetivo:
-            juego.reagrupar_misil(renderer.pais_seleccionado,renderer.pais_objetivo)
+            if juego.reagrupar_misil(renderer.pais_seleccionado,renderer.pais_objetivo):
+                renderer.registrar_reagrupe(renderer.pais_seleccionado,renderer.pais_objetivo,1,juego,tipo='misil')
         renderer.pais_seleccionado=None
         renderer.pais_objetivo=None
 
@@ -406,7 +416,9 @@ def manejar_accion_popup(accion, juego, renderer):
     if accion.startswith('atacar_condominio_'):
         defensa=int(accion.rsplit('_',1)[1])
         res=juego.atacar_condominio(renderer.pais_seleccionado,renderer.pais_objetivo,defensor_idx=defensa)
-        if res['ok']:renderer.mostrar_resultado_dados(res)
+        if res['ok']:
+            renderer.registrar_combate(renderer.pais_seleccionado,renderer.pais_objetivo,res,juego)
+            renderer.mostrar_resultado_dados(res)
         else:renderer.mostrar_popup('ATAQUE NO PERMITIDO','Revisá pacto, guarnición y fase de ataque.')
         renderer.construir_botones(juego)
         return
@@ -469,7 +481,8 @@ def manejar_accion_popup(accion, juego, renderer):
             desde = estado["desde"]
             hacia = estado["hacia"]
             cantidad = estado["cantidad_actual"]
-            juego.reagrupar(desde, hacia, cantidad)
+            if juego.reagrupar(desde, hacia, cantidad):
+                renderer.registrar_reagrupe(desde,hacia,cantidad,juego,tipo='ejercitos')
             renderer.popup = None
             renderer.pais_seleccionado = None
             renderer.pais_objetivo     = None
@@ -479,7 +492,8 @@ def manejar_accion_popup(accion, juego, renderer):
     elif accion.startswith("reagrupar_ejercitos_"):
         # Mantener compatibilidad con el código antiguo (por si acaso)
         cant = int(accion.split("_")[-1])
-        juego.reagrupar(renderer.pais_seleccionado, renderer.pais_objetivo, cant)
+        if juego.reagrupar(renderer.pais_seleccionado, renderer.pais_objetivo, cant):
+            renderer.registrar_reagrupe(renderer.pais_seleccionado,renderer.pais_objetivo,cant,juego,tipo='ejercitos')
         renderer.popup = None
         renderer.pais_seleccionado = None
         renderer.pais_objetivo     = None
@@ -515,7 +529,8 @@ def main():
     renderer = Renderer()
 
     # Pantalla de menú con cantidad de jugadores y color humano
-    n_jugadores, color_humano, incluir_eliminacion = renderer.pantalla_menu()
+    n_jugadores, color_humano, incluir_eliminacion, animaciones_activas = renderer.pantalla_menu()
+    renderer.animaciones_activas = animaciones_activas
 
     # Inicializar juego
     juego = JuegoTEG(n_jugadores=n_jugadores, color_humano=color_humano,
@@ -603,7 +618,7 @@ def main():
                 # Popup primero
                 if renderer.popup:
                     if (renderer.popup.get('tipo') == 'pacto_propuesta' and
-                        pos[0] < renderer.MAP_W and event.button == 1):
+                        renderer.MAP_X <= pos[0] < renderer.MAP_X + renderer.MAP_W and event.button == 1):
                         # El mapa se puede consultar durante la negociación;
                         # ningún clic inicia ataques, refuerzos o turnos.
                         renderer.inspeccionar_pais_pacto(pos,juego)
@@ -634,7 +649,7 @@ def main():
 
                     if accion_btn:
                         manejar_boton(accion_btn, juego, renderer)
-                    elif pos[0] < renderer.MAP_W:
+                    elif renderer.MAP_X <= pos[0] < renderer.MAP_X + renderer.MAP_W:
                         manejar_clic_mapa(pos, juego, renderer)
                     if accion_btn=='velocidad_bot':
                         siguiente_paso_bot=pygame.time.get_ticks()+200
@@ -708,6 +723,19 @@ def main():
                 renderer.ultimo_evento_bot=estado['texto']
                 renderer.pais_seleccionado=estado.get('pais')
                 renderer.pais_objetivo=estado.get('destino')
+                if estado.get('accion')=='canje':
+                    renderer.registrar_canje(jugador_actual.nombre, estado.get('valor',0))
+                if estado.get('accion')=='incorporar' and estado.get('pais'):
+                    renderer.registrar_incorporacion(estado['pais'],estado.get('cantidad',1),juego,tipo='ejercitos',jugador_idx=jugador_actual.idx)
+                if estado.get('accion')=='reagrupar' and estado.get('pais') and estado.get('destino'):
+                    renderer.registrar_reagrupe(estado['pais'],estado['destino'],estado.get('cantidad',1),juego,tipo='ejercitos',jugador_idx=jugador_actual.idx)
+                if estado.get('pais') and estado.get('destino'):
+                    if estado.get('dados') and estado['dados'].get('ok'):
+                        renderer.registrar_combate(estado['pais'],estado['destino'],
+                            estado['dados'],juego)
+                    elif estado.get('accion')=='misil' or 'MISIL' in estado.get('texto','').upper():
+                        renderer.registrar_combate(estado['pais'],estado['destino'],
+                            None,juego,tipo='misil')
                 if estado.get('dados'):
                     renderer.mostrar_resultado_dados(estado['dados'],frames=65 if espera>500 else 26)
             siguiente_paso_bot=ahora+espera

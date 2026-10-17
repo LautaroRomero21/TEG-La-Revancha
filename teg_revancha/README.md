@@ -1,3 +1,15 @@
+## Novedades de la versión 12 — Batallas fáciles de seguir
+
+- **Animación sobre el mapa:** cada ataque muestra una ruta resaltada desde el país atacante hacia el defensor, halos pulsantes, un proyectil en movimiento y etiquetas con los nombres de ambos países. Funciona tanto para combates de bots como para ataques del jugador; los lanzamientos de misiles se destacan con otro color.
+- **Conquistas más visibles:** al conquistar aparece `PAÍS CONQUISTADO` con el nombre del territorio y el jugador. Permanece unos segundos incluso si otro bot empieza a atacar. La transferencia de tropas sigue funcionando igual.
+- **Dados reposicionados:** el cuadro de resultados ahora es compacto y aparece en la esquina superior derecha del mapa, sin tapar la zona central de las acciones.
+- **Máximo cinco tarjetas de país:** la solicitud final de turno se bloquea al tener cinco; las tarjetas continentales no cuentan para el límite. El botón `SOLICITAR TARJETA` se deshabilita en ese caso; los bots respetan la misma regla.
+- **Nigeria–Angola:** frontera nueva bidireccional; el mapa conserva 72 países y suma **137 conexiones**.
+
+**Validación v12:** ejecutar `python -m unittest -q test_reglas test_pactos test_correcciones_v7 test_correcciones_v8 test_correcciones_v9 test_correcciones_v10 test_correcciones_v11 test_correcciones_v12` (120 casos). Los efectos gráficos requieren revisión en una instalación de Pygame sobre Windows.
+
+---
+
 ## Correcciones v11 — Dados, bloqueos y tarjetas continentales
 
 - **Cuarto dado en Combate clásico:** no es aleatorio: el reglamento (pág. 12) permite cuatro dados si el defensor tiene **al menos 3 ejércitos** y el atacante **al menos el doble de ejércitos**, sin contar misiles. Por eso una secuencia de ataques puede mostrar 3, 4 y 3 dados. El resultado de combate y el historial ahora indican **DOBLE FUERZA** o **VIENTO A FAVOR** cuando corresponde; los dos mecanismos comparten un máximo de cuatro dados. También se utiliza el mismo cálculo en ataques a guarniciones de condominios.

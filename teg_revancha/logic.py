@@ -1104,7 +1104,7 @@ class JuegoTEG(DiplomaciaMixin):
             if (self.etapa=='hostilidades' and j.canje_ultima_ronda!=self.ronda
                     and self.opcion_canje(j) is not None):
                 v=self.canjear_tarjetas()
-                if v:return {'texto':f'{j.nombre}: canje +{v} ejércitos'}
+                if v:return {'texto':f'{j.nombre}: canje +{v} ejércitos','accion':'canje','valor':v}
             mis=[p for p in self.paises_de(idx) if self.etapa=='preparacion' or not self._pais_bloqueado(p)]
             con=[c for c,n in self.refuerzos_continente.items() if n>0]
             if con:mis=[p for p in mis if self.tablero[p]['continente'] in con]
@@ -1118,7 +1118,7 @@ class JuegoTEG(DiplomaciaMixin):
             cantidad=max(1,min(maximo,lote))
             if not self.incorporar(pais,cantidad):raise RuntimeError('Bot no pudo incorporar tropas')
             self.bot_refuerzos_por_pais[pais]=self.bot_refuerzos_por_pais.get(pais,0)+cantidad
-            return {'texto':f'{j.nombre} ({perfil}): +{cantidad} en {pais}', 'pais':pais}
+            return {'texto':f'{j.nombre} ({perfil}): +{cantidad} en {pais}', 'accion':'incorporar', 'pais':pais, 'cantidad':cantidad}
         if self.fase==FASE_ATACAR:
             propuesta=self._propuesta_ocasional_bot()
             if propuesta:return propuesta
@@ -1148,7 +1148,7 @@ class JuegoTEG(DiplomaciaMixin):
                         opciones.append((score,p,q))
                 for _,p,q in sorted(opciones,reverse=True)[:8]:
                     if self.lanzar_misil(q,desde=p):
-                        return {'texto':f'{j.nombre}: MISIL {p} -> {q}', 'pais':p,'destino':q}
+                        return {'texto':f'{j.nombre}: MISIL {p} -> {q}', 'accion':'misil', 'pais':p,'destino':q}
                 max_ataques={'Agresivo':48,'Defensivo':14,'Objetivo':38,'Oportunista':28,'Equilibrado':30}
                 if self.bot_ataques_turno<max_ataques[j.estilo_bot or 'Equilibrado']:
                     candidatos=self._ataques_posibles_bot(j)
@@ -1157,7 +1157,7 @@ class JuegoTEG(DiplomaciaMixin):
                         r=self.atacar(p,q)
                         self.bot_ataques_turno+=1
                         if r['ok']:
-                            return {'texto':f'{j.nombre}: ataca {p} -> {q}', 'pais':p,'destino':q,'dados':r}
+                            return {'texto':f'{j.nombre}: ataca {p} -> {q}', 'accion':'atacar', 'pais':p,'destino':q,'dados':r}
             self.avanzar_fase()
             return {'texto':f'{j.nombre}: pasa a reagrupar'}
         if self.fase==FASE_REAGRUPAR:
@@ -1166,13 +1166,13 @@ class JuegoTEG(DiplomaciaMixin):
                 movimiento=self._reagrupe_estrategico_bot(j)
                 if movimiento:
                     p,q,cant=movimiento
-                    return {'texto':f'{j.nombre}: mueve {cant} de {p} a {q}', 'pais':p,'destino':q}
+                    return {'texto':f'{j.nombre}: mueve {cant} de {p} a {q}', 'accion':'reagrupar', 'pais':p,'destino':q,'cantidad':cant}
             self.avanzar_fase()
             return {'texto':f'{j.nombre}: revisa tarjetas'}
         if self.fase==FASE_TARJETA:
             if self.puede_solicitar_tarjeta():
                 carta=self.solicitar_tarjeta()
-                return {'texto':f'{j.nombre}: solicita tarjeta ({carta})'}
+                return {'texto':f'{j.nombre}: solicita tarjeta ({carta})','accion':'tarjeta','carta':carta}
             self.avanzar_fase()
             return {'texto':f'{j.nombre}: termina turno'}
         return None

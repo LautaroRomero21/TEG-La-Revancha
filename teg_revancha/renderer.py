@@ -76,10 +76,12 @@ class Boton:
 class Renderer:
     """Gestiona toda la interfaz grafica del juego."""
 
-    WIN_W, WIN_H = 1600, 900
+    WIN_W, WIN_H = 1880, 900
+    LEFT_W = 280
+    MAP_X = LEFT_W
     MAP_W = 1200   # mapa en proporción 4:3
     MAP_H = 900
-    PANEL_X = 1200
+    PANEL_X = MAP_X + MAP_W
     PANEL_W = 400
 
     RADIO_TOKEN  = 16  # radio del circulo de token de pais
@@ -135,8 +137,16 @@ class Renderer:
         self.menu_contextual   = None   # lista de acciones al pulsar botón derecho
         self._pacto_contexto   = {}
         self.animacion_timer   = 0
+        # Efecto independiente de los dados: sigue el ataque directamente sobre
+        # el mapa, incluso cuando el bot realiza acciones encadenadas.
+        self.combate_visual = None
+        self.ultima_conquista_visual = None
+        self.incorporacion_visual = None
+        self.reagrupe_visual = None
+        self.canje_visual = None
         self.vista_tarjetas = None
         self.ultimo_evento_bot = ''
+        self.animaciones_activas = True
         self.velocidades_bot = [("PAUSA",None),("1x",1100),("2x",550),("4x",250),("8x",90)]
         self.velocidad_bot_idx = 1
         # Las misiones son imágenes recortadas y orientadas del PDF aportado.
@@ -206,15 +216,19 @@ class Renderer:
                     acciones_y=acciones_titulo_y, boton_y=inicio_botones,
                     util_y=util_y, log_y=util_y+43)
 
+    def _coord_local(self, coords: tuple) -> tuple:
+        x_orig, y_orig = coords
+        x = int(x_orig * self.MAP_W / 1280)
+        y = int(y_orig * self.MAP_H / 960)
+        return (x, y)
+
     def _escalar_coords(self, coords: tuple) -> tuple:
         """
         Las coordenadas en data.py estan definidas para 1280x960.
         Las escalamos al area visible de mapa de 1200x900.
         """
-        x_orig, y_orig = coords
-        x = int(x_orig * self.MAP_W / 1280)
-        y = int(y_orig * self.MAP_H / 960)
-        return (x, y)
+        x, y = self._coord_local(coords)
+        return (self.MAP_X + x, y)
 
     # ─── Construccion de botones ────────────────────────────────────
 
@@ -288,29 +302,20 @@ class Renderer:
     def render(self, juego):
         self.screen.fill(C_BG)
 
-        # Mapa
-        self.screen.blit(self.mapa, (0, 0))
+        # Mapa centrado entre los paneles.
+        self.screen.blit(self.mapa, (self.MAP_X, 0))
         self._dibujar_conexiones_mar(juego)
         self._dibujar_tokens(juego)
-        self._dibujar_ayuda_mapa(juego)
+        if self.animaciones_activas:
+            self._dibujar_efecto_combate()
+            self._dibujar_efecto_incorporacion()
+            self._dibujar_efecto_reagrupe()
 
-        # Panel
+        # Paneles laterales
+        self._dibujar_panel_izquierdo(juego)
         self._dibujar_panel(juego)
 
-        # Resultado dados
-        if self.resultado_dados and self.animacion_timer > 0:
-            self._dibujar_resultado_dados()
-            self.animacion_timer -= 1
-
-        if self.ultimo_evento_bot and not self.vista_tarjetas:
-            txt=self.font_md.render(self.ultimo_evento_bot[:100],True,C_TEXT)
-            bw=min(self.MAP_W-30,txt.get_width()+24)
-            capa=pygame.Surface((bw,38),pygame.SRCALPHA)
-            capa.fill((12,20,34,222))
-            self.screen.blit(capa,(12,self.MAP_H-112))
-            self.screen.blit(txt,(24,self.MAP_H-102))
-
-        # Tooltip en botones (sin tapar el mapa).
+        # Tooltip en botones.
         for btn in self.botones:
             if btn.hover and btn.tooltip:
                 mensaje=self.font_sm.render(btn.tooltip, True, C_TEXT)
@@ -323,21 +328,19 @@ class Renderer:
         if self.vista_tarjetas:
             self._dibujar_vista_tarjetas(juego)
 
-        # Menú contextual, siempre por encima de países y botones.
         if self.menu_contextual and not self.popup:
             self._dibujar_menu_contextual()
 
-        # Popup
         if self.popup:
             self._dibujar_popup(juego)
 
         pygame.display.flip()
         self.clock.tick(60)
 
-    def _dibujar_ayuda_mapa(self, juego):
-        """HUD sobre el tablero, con la selección actual y controles visibles."""
+    def _resumen_hover_o_seleccion(self, juego):
         mouse=pygame.mouse.get_pos()
-        hover=self.pais_en_pos(mouse,juego.tablero) if mouse[0]<self.MAP_W else None
+        en_mapa=self.MAP_X <= mouse[0] < self.MAP_X + self.MAP_W
+        hover=self.pais_en_pos(mouse,juego.tablero) if en_mapa else None
         if hover:
             p=juego.tablero[hover]
             propietario=p['propietario']
@@ -345,22 +348,114 @@ class Renderer:
                 nombre=' + '.join(f'{juego.jugadores[i].color_nombre} {n}' for i,n in juego.condominios[hover].items())
             else:
                 nombre=juego.jugadores[propietario].color_nombre if propietario is not None else 'Sin dueño'
-            texto=f'{hover}  ·  {nombre}  ·  {p["ejercitos"]} ej.'
+            texto=f'{hover} · {nombre} · {p["ejercitos"]} ej.'
             if p['misiles']:
-                texto+=f'  ·  {p["misiles"]} misil(es)'
-        elif self.pais_seleccionado:
+                texto+=f' · {p["misiles"]} misil(es)'
+            return texto
+        if self.pais_seleccionado:
             texto='Origen: '+self.pais_seleccionado
-            if self.pais_objetivo: texto+='   →   Destino: '+self.pais_objetivo
-        else:
-            texto='Seleccioná un territorio del mapa para jugar'
-        bw=min(self.MAP_W-36,max(310,self.font_md.size(texto)[0]+46))
-        r=pygame.Rect(18,self.MAP_H-58,bw,42)
-        fondo=pygame.Surface((r.w,r.h),pygame.SRCALPHA)
-        fondo.fill((11,26,41,227))
-        self.screen.blit(fondo,r)
-        pygame.draw.rect(self.screen,(74,113,132),r,1,border_radius=9)
-        pygame.draw.circle(self.screen,C_ACCENT2,(r.x+18,r.centery),5)
-        self._texto(texto,r.x+33,r.y+12,self.font_md,C_TEXT,max_ancho=bw-43)
+            if self.pais_objetivo:
+                texto+=' → Destino: '+self.pais_objetivo
+            return texto
+        return 'Seleccioná un territorio del mapa para jugar'
+
+    def _dibujar_panel_izquierdo(self, juego):
+        x,w=0,self.LEFT_W
+        pygame.draw.rect(self.screen,C_PANEL,(x,0,w,self.WIN_H))
+        pygame.draw.line(self.screen,C_PANEL_BORDER,(w-1,0),(w-1,self.WIN_H),2)
+        self._texto('CENTRO DE EVENTOS',16,14,self.font_lg,C_ACCENT)
+        self._texto('Animaciones '+('activas' if self.animaciones_activas else 'desactivadas'),16,42,self.font_sm,C_TEXT_DIM)
+        y=74
+        # Evento principal del momento
+        titulo='ESTADO'
+        lineas=[]
+        color=C_ACCENT2
+        if self.combate_visual:
+            c=self.combate_visual
+            titulo='ATAQUE EN CURSO'
+            color=C_HIGHLIGHT_ATK if c['tipo']!='misil' else C_ACCENT
+            lineas=[f"{c['desde']} → {c['hacia']}",
+                    ('Conquista confirmada' if c.get('conquista') else 'Combate activo'),
+                    f"Bajas A/D: {c.get('bajas_atk',0)} / {c.get('bajas_def',0)}"]
+        elif self.reagrupe_visual:
+            r=self.reagrupe_visual
+            titulo='REAGRUPAMIENTO'
+            color=C_SUCCESS
+            item='misil' if r['tipo']=='misil' else 'ejércitos'
+            detalle='1 misil' if r['tipo']=='misil' else f"{r['cantidad']} ejércitos"
+            lineas=[f"{r['desde']} → {r['hacia']}", f"Traslado de {detalle}"]
+        elif self.incorporacion_visual:
+            r=self.incorporacion_visual
+            titulo='INCORPORACIÓN'
+            color=C_SUCCESS if r['tipo']=='ejercitos' else C_ACCENT
+            detalle='1 misil' if r['tipo']=='misil' else f"+{r['cantidad']} ejércitos"
+            lineas=[r['pais'], detalle]
+        elif self.canje_visual:
+            c=self.canje_visual
+            titulo='CANJE REALIZADO'
+            color=C_ACCENT
+            lineas=[c['jugador'], f"+{c['valor']} ejércitos"]
+        elif self.ultimo_evento_bot:
+            titulo='ÚLTIMO EVENTO'
+            color=C_ACCENT2
+            lineas=self._ajustar_lineas(self.ultimo_evento_bot,self.font_sm,w-34)[:3]
+        self._tarjeta((12,y,w-24,110),(20,39,58),(54,84,106),12)
+        self._texto(titulo,24,y+10,self.font_md,color,max_ancho=w-48)
+        ty=y+36
+        for linea in lineas[:4]:
+            self._texto(linea,24,ty,self.font_sm,C_TEXT,max_ancho=w-48)
+            ty+=19
+        y+=120
+        # Resultado de dados / canje / conquista
+        if self.resultado_dados and self.animacion_timer > 0:
+            r=self.resultado_dados
+            self._tarjeta((12,y,w-24,154),(22,42,63),(62,92,112),12)
+            self._texto('DADOS DEL COMBATE',24,y+10,self.font_md,C_ACCENT,max_ancho=w-48)
+            self._texto('ATACA',24,y+37,self.font_micro,C_DANGER)
+            self._texto('DEFIENDE',24,y+73,self.font_micro,C_ACCENT2)
+            for fila,(clave,tono) in enumerate((('dados_atk',C_DANGER),('dados_def',C_ACCENT2))):
+                for i,dado in enumerate(r.get(clave,[])[:3]):
+                    self._dibujar_dado(96+i*41,y+31+fila*36,dado,tono,tamano=30)
+            bajas=f'-{r.get("bajas_atk",0)} atk / -{r.get("bajas_def",0)} def'
+            self._texto(bajas,24,y+111,self.font_sm,C_TEXT,max_ancho=w-48)
+            extra=r.get('razon_4_dados') or ('Territorio conquistado' if r.get('conquisto') else '')
+            if extra:
+                self._texto(extra,24,y+131,self.font_micro,C_ACCENT,max_ancho=w-48)
+            self.animacion_timer -= 1
+            y+=164
+        if self.ultima_conquista_visual:
+            c=self.ultima_conquista_visual
+            if pygame.time.get_ticks()-c['inicio']<c['duracion']:
+                self._tarjeta((12,y,w-24,76),(22,40,58),(90,120,142),12)
+                self._texto('PAÍS CONQUISTADO',24,y+10,self.font_md,C_ACCENT,max_ancho=w-48)
+                self._texto(c['pais'],24,y+35,self.font_lg,C_TEXT,max_ancho=w-48)
+                self._texto(c['jugador'],24,y+56,self.font_sm,C_TEXT_DIM,max_ancho=w-48)
+                y+=86
+            else:
+                self.ultima_conquista_visual=None
+        if self.canje_visual and pygame.time.get_ticks()-self.canje_visual['inicio']<self.canje_visual['duracion']:
+            c=self.canje_visual
+            self._tarjeta((12,y,w-24,74),(34,54,40),(98,146,89),12)
+            self._texto('CANJE DE CARTAS',24,y+10,self.font_md,C_SUCCESS,max_ancho=w-48)
+            self._texto(c['jugador'],24,y+34,self.font_sm,C_TEXT,max_ancho=w-48)
+            self._texto(f'+{c["valor"]} ejércitos',24,y+53,self.font_md,C_ACCENT,max_ancho=w-48)
+            y+=84
+        elif self.canje_visual and pygame.time.get_ticks()-self.canje_visual['inicio']>=self.canje_visual['duracion']:
+            self.canje_visual=None
+        # Ayuda fija abajo
+        hud_h=86
+        by=self.WIN_H-hud_h-14
+        self._tarjeta((12,by,w-24,hud_h),(19,35,52),(53,82,104),12)
+        self._texto('MAPA Y SELECCIÓN',24,by+10,self.font_md,C_ACCENT2,max_ancho=w-48)
+        resumen=self._resumen_hover_o_seleccion(juego)
+        lineas=self._ajustar_lineas(resumen,self.font_sm,w-42)[:3]
+        ty=by+34
+        for linea in lineas:
+            self._texto(linea,24,ty,self.font_sm,C_TEXT,max_ancho=w-48)
+            ty+=18
+
+    def _dibujar_ayuda_mapa(self, juego):
+        return
 
     def _dibujar_tokens(self, juego):
         """Dibuja un circulo por pais con el color del dueno y ejercitos."""
@@ -454,8 +549,8 @@ class Renderer:
             return
         if b not in juego.tablero[a]['fronteras']:
             return
-        ca=self._escalar_coords(juego.tablero[a]['coords'])
-        cb=self._escalar_coords(juego.tablero[b]['coords'])
+        ca=self._coord_local(juego.tablero[a]['coords'])
+        cb=self._coord_local(juego.tablero[b]['coords'])
         dx,dy=cb[0]-ca[0],cb[1]-ca[1]
         distancia=math.hypot(dx,dy)
         if distancia < 2: return
@@ -473,7 +568,7 @@ class Renderer:
                 pygame.draw.line(trazo,(*tono,115),ini,fin,3)
             self._conexion_cache_key=clave
             self._conexion_cache=trazo
-        self.screen.blit(self._conexion_cache,(0,0))
+        self.screen.blit(self._conexion_cache,(self.MAP_X,0))
 
     # ─── Panel lateral ──────────────────────────────────────────────
 
@@ -652,6 +747,186 @@ class Renderer:
             self._texto(etiqueta,px+pw-self.font_micro.size(etiqueta)[0],ly+4,
                         self.font_micro,C_ACCENT2)
 
+    # ─── Indicadores animados de combate sobre el tablero ───────────
+
+    def registrar_combate(self, desde, hacia, resultado, juego, tipo='ataque', jugador_idx=None):
+        """Guarda un efecto visual sin alterar la lógica, los turnos ni los dados.
+
+        El efecto es temporal, pero una conquista conserva un aviso propio que
+        no desaparece aunque el bot lance inmediatamente otro ataque.
+        """
+        if desde not in juego.tablero or hacia not in juego.tablero:
+            return False
+        idx=juego.turno_idx if jugador_idx is None else jugador_idx
+        if idx is None or not 0 <= idx < len(juego.jugadores):
+            return False
+        ahora=pygame.time.get_ticks()
+        conquista=bool(resultado and resultado.get('conquisto'))
+        color=juego.jugadores[idx].color
+        self.combate_visual={
+            'desde':desde, 'hacia':hacia,
+            'pos_desde':self._escalar_coords(juego.tablero[desde]['coords']),
+            'pos_hacia':self._escalar_coords(juego.tablero[hacia]['coords']),
+            'jugador':juego.jugadores[idx].nombre,
+            'color':color, 'tipo':tipo, 'conquista':conquista,
+            'bajas_atk':(resultado or {}).get('bajas_atk',0),
+            'bajas_def':(resultado or {}).get('bajas_def',0),
+            'inicio':ahora,
+            # En 1x es bien visible; en modos rápidos, el último trazo no
+            # parpadea ni consume los eventos del juego.
+            'duracion':1450 if conquista else 1050,
+        }
+        if conquista:
+            self.ultima_conquista_visual={
+                'pais':hacia, 'jugador':juego.jugadores[idx].nombre,
+                'color':color, 'inicio':ahora, 'duracion':4200,
+            }
+        return True
+
+    def registrar_incorporacion(self, pais, cantidad, juego, tipo='ejercitos', jugador_idx=None):
+        if pais not in juego.tablero:
+            return False
+        idx = juego.turno_idx if jugador_idx is None else jugador_idx
+        self.incorporacion_visual={
+            'pais':pais,'cantidad':cantidad,'tipo':tipo,
+            'pos':self._escalar_coords(juego.tablero[pais]['coords']),
+            'color':juego.jugadores[idx].color,
+            'inicio':pygame.time.get_ticks(),'duracion':1200 if tipo=='ejercitos' else 1450,
+        }
+        return True
+
+    def registrar_reagrupe(self, desde, hacia, cantidad, juego, tipo='ejercitos', jugador_idx=None):
+        if desde not in juego.tablero or hacia not in juego.tablero:
+            return False
+        idx = juego.turno_idx if jugador_idx is None else jugador_idx
+        self.reagrupe_visual={
+            'desde':desde,'hacia':hacia,'cantidad':cantidad,'tipo':tipo,
+            'pos_desde':self._escalar_coords(juego.tablero[desde]['coords']),
+            'pos_hacia':self._escalar_coords(juego.tablero[hacia]['coords']),
+            'color':juego.jugadores[idx].color,
+            'inicio':pygame.time.get_ticks(),'duracion':1400 if tipo=='ejercitos' else 1600,
+        }
+        return True
+
+    def registrar_canje(self, jugador_nombre, valor):
+        self.canje_visual={'jugador':jugador_nombre,'valor':valor,
+                           'inicio':pygame.time.get_ticks(),'duracion':4200}
+        return True
+
+    def _dibujar_efecto_incorporacion(self):
+        e=self.incorporacion_visual
+        if not e:return
+        t=pygame.time.get_ticks()-e['inicio']
+        if t>=e['duracion']:
+            self.incorporacion_visual=None
+            return
+        (cx,cy)=e['pos']
+        onda=0.5+0.5*math.sin(t*.02)
+        radio=24+int(10*onda)
+        color=C_SUCCESS if e['tipo']=='ejercitos' else C_ACCENT
+        pygame.draw.circle(self.screen,(8,22,32),(cx,cy),radio+6,4)
+        pygame.draw.circle(self.screen,color,(cx,cy),radio,3)
+        texto=('+'+str(e['cantidad'])) if e['tipo']=='ejercitos' else '+MISIL'
+        ancho=max(74,self.font_md.size(texto)[0]+18)
+        rect=pygame.Rect(max(self.MAP_X+8,min(self.MAP_X+self.MAP_W-ancho-8,cx-ancho//2)),
+                         max(8,cy-65),ancho,30)
+        pygame.draw.rect(self.screen,(9,24,40),rect,border_radius=8)
+        pygame.draw.rect(self.screen,color,rect,2,border_radius=8)
+        self._texto(texto,rect.x+10,rect.y+6,self.font_md,C_TEXT,max_ancho=ancho-18)
+
+    def _dibujar_efecto_reagrupe(self):
+        e=self.reagrupe_visual
+        if not e:return
+        t=pygame.time.get_ticks()-e['inicio']
+        if t>=e['duracion']:
+            self.reagrupe_visual=None
+            return
+        (ax,ay),(bx,by)=e['pos_desde'],e['pos_hacia']
+        color=C_SUCCESS if e['tipo']=='ejercitos' else C_ACCENT
+        pygame.draw.line(self.screen,(10,24,36),(ax,ay),(bx,by),10)
+        pygame.draw.line(self.screen,color,(ax,ay),(bx,by),4)
+        dx,dy=bx-ax,by-ay
+        distancia=max(1,math.hypot(dx,dy))
+        paso=(t%700)/700
+        px=int(ax+dx*paso);py=int(ay+dy*paso)
+        pygame.draw.circle(self.screen,(9,22,34),(px,py),11)
+        pygame.draw.circle(self.screen,color,(px,py),7)
+        for posicion in ((ax,ay),(bx,by)):
+            pygame.draw.circle(self.screen,color,posicion,23,3)
+        txt=('REAGRUPE +' + str(e['cantidad'])) if e['tipo']=='ejercitos' else 'REAGRUPE MISIL'
+        self._etiqueta_combate(txt,((ax+bx)//2,(ay+by)//2),min(ay,by)-48,color)
+
+    def _etiqueta_combate(self, texto, centro, y, color):
+        """Etiqueta pequeña, contrastada y contenida dentro del mapa."""
+        ancho=min(330,self.font_md.size(texto)[0]+24)
+        alto=29
+        x=max(self.MAP_X+5,min(self.MAP_X+self.MAP_W-ancho-5,centro[0]-ancho//2))
+        y=max(6,min(self.MAP_H-alto-6,int(y)))
+        rect=pygame.Rect(x,y,ancho,alto)
+        pygame.draw.rect(self.screen,(10,22,34),rect,border_radius=8)
+        pygame.draw.rect(self.screen,color,rect,2,border_radius=8)
+        self._texto(texto,x+12,y+6,self.font_md,C_TEXT,max_ancho=ancho-22)
+
+    def _dibujar_efecto_combate(self):
+        """Ruta de ataque y destellos pulsantes: la ubicación importa más que los dados."""
+        c=self.combate_visual
+        if not c:return
+        transcurrido=pygame.time.get_ticks()-c['inicio']
+        if transcurrido>=c['duracion']:
+            self.combate_visual=None
+            return
+        progreso=max(0.0,min(1.0,transcurrido/c['duracion']))
+        (ax,ay),(bx,by)=c['pos_desde'],c['pos_hacia']
+        misil=c['tipo']=='misil'
+        tono=(250,202,96) if misil else C_HIGHLIGHT_ATK
+        defensa=C_HIGHLIGHT_DEF
+        onda=0.5+0.5*math.sin(transcurrido*.018)
+        radio=23+int(7*onda)
+        # Línea luminosa, flecha móvil y halo sobre cada ficha.
+        pygame.draw.line(self.screen,(13,22,34),(ax,ay),(bx,by),12)
+        pygame.draw.line(self.screen,tono,(ax,ay),(bx,by),5)
+        pygame.draw.line(self.screen,C_TEXT,(ax,ay),(bx,by),1)
+        dx,dy=bx-ax,by-ay
+        distancia=math.hypot(dx,dy)
+        if distancia>0.01:
+            ux,uy=dx/distancia,dy/distancia
+            punta=(int(bx-ux*21),int(by-uy*21))
+            lado=(-uy,ux)
+            triangulo=[punta,
+                (int(punta[0]-ux*17+lado[0]*9),int(punta[1]-uy*17+lado[1]*9)),
+                (int(punta[0]-ux*17-lado[0]*9),int(punta[1]-uy*17-lado[1]*9))]
+            pygame.draw.polygon(self.screen,tono,triangulo)
+            # Proyectil desplazándose de origen a destino repetidamente.
+            paso=(transcurrido%580)/580
+            px=int(ax+dx*paso);py=int(ay+dy*paso)
+            pygame.draw.circle(self.screen,(12,22,33),(px,py),10)
+            pygame.draw.circle(self.screen,(255,245,194) if misil else (255,235,217),(px,py),6)
+        for posicion,col in (((ax,ay),tono),((bx,by),defensa)):
+            pygame.draw.circle(self.screen,(11,21,32),posicion,radio+5,4)
+            pygame.draw.circle(self.screen,col,posicion,radio,4)
+            pygame.draw.circle(self.screen,col,posicion,radio+8,1)
+        # Etiquetas ubicadas fuera de las fichas, para distinguir países.
+        self._etiqueta_combate('SALE: '+c['desde'],(ax,ay),ay-64,tono)
+        self._etiqueta_combate('OBJETIVO: '+c['hacia'],(bx,by),by+32,defensa)
+        # Los datos del combate se muestran en la columna izquierda.
+        if c['conquista']:
+            pygame.draw.circle(self.screen,C_ACCENT,(bx,by),radio+15,3)
+
+    def _dibujar_aviso_conquista(self):
+        """Aviso persistente, independiente del siguiente ataque del bot."""
+        c=self.ultima_conquista_visual
+        if not c:return
+        if pygame.time.get_ticks()-c['inicio']>=c['duracion']:
+            self.ultima_conquista_visual=None
+            return
+        x,y,w,h=786,self.MAP_H-68,402,52
+        fondo=pygame.Surface((w,h),pygame.SRCALPHA)
+        fondo.fill((10,24,38,234))
+        self.screen.blit(fondo,(x,y))
+        pygame.draw.rect(self.screen,C_ACCENT,(x,y,w,h),2,border_radius=10)
+        self._texto('★  PAÍS CONQUISTADO',x+12,y+5,self.font_md,C_ACCENT)
+        self._texto(f'{c["pais"]}  ·  {c["jugador"]}',x+12,y+29,self.font_sm,C_TEXT,max_ancho=w-25)
+
     # ─── Resultado de dados ─────────────────────────────────────────
 
     def mostrar_resultado_dados(self, resultado: dict, frames=120):
@@ -659,59 +934,37 @@ class Renderer:
         self.animacion_timer = frames
 
     def _dibujar_resultado_dados(self):
-        r = self.resultado_dados
-        if not r:
-            return
-        # Ventana flotante centrada en el mapa
-        w, h = 520, 200
-        x = (self.MAP_W - w) // 2
-        y = (self.MAP_H - h) // 2
+        """Resumen compacto a la derecha del indicador de ataque.
 
-        # Fondo semitransparente
-        surf = pygame.Surface((w, h), pygame.SRCALPHA)
-        surf.fill((15, 20, 40, 210))
-        self.screen.blit(surf, (x, y))
-        pygame.draw.rect(self.screen, C_PANEL_BORDER, (x, y, w, h), 2, border_radius=12)
+        Antes aparecía sobre el centro del tablero y ocultaba justamente los
+        territorios donde los bots peleaban; ahora deja libre todo el mapa.
+        """
+        r=self.resultado_dados
+        if not r:return
+        x,y,w,h=self.MAP_W-394,12,382,154
+        fondo=pygame.Surface((w,h),pygame.SRCALPHA)
+        fondo.fill((12,24,41,234))
+        self.screen.blit(fondo,(x,y))
+        pygame.draw.rect(self.screen,C_PANEL_BORDER,(x,y,w,h),2,border_radius=11)
+        self._texto('DADOS DEL COMBATE',x+12,y+8,self.font_lg,C_ACCENT)
+        self._texto('ATACA',x+13,y+41,self.font_micro,C_DANGER)
+        self._texto('DEFIENDE',x+13,y+76,self.font_micro,C_ACCENT2)
+        for fila,(clave,tono) in enumerate((('dados_atk',C_DANGER),('dados_def',C_ACCENT2))):
+            for i,dado in enumerate(r.get(clave,[])):
+                self._dibujar_dado(x+92+i*45,y+38+fila*35,dado,tono,tamano=29)
+        bajas=f'-{r.get("bajas_atk",0)} atacante  /  -{r.get("bajas_def",0)} defensor'
+        self._texto(bajas,x+14,y+113,self.font_sm,C_TEXT,max_ancho=w-28)
+        if r.get('razon_4_dados'):
+            self._texto('4 DADOS: '+r['razon_4_dados'],x+14,y+133,
+                        self.font_micro,C_ACCENT,max_ancho=w-28)
+        elif r.get('conquisto'):
+            self._texto('¡TERRITORIO CONQUISTADO!',x+14,y+133,self.font_micro,C_ACCENT)
 
-        # Titulo
-        tit = self.font_lg.render("RESULTADO DEL COMBATE", True, C_ACCENT)
-        self.screen.blit(tit, (x + (w - tit.get_width()) // 2, y + 10))
-
-        # Dados atacante
-        atk_lbl = self.font_md.render("Atacante:", True, C_DANGER)
-        self.screen.blit(atk_lbl, (x + 20, y + 50))
-        for i, d in enumerate(r.get("dados_atk", [])):
-            self._dibujar_dado(x + 20 + i * 50, y + 70, d, C_DANGER)
-
-        # Dados defensor
-        def_lbl = self.font_md.render("Defensor:", True, C_ACCENT2)
-        self.screen.blit(def_lbl, (x + 280, y + 50))
-        for i, d in enumerate(r.get("dados_def", [])):
-            self._dibujar_dado(x + 280 + i * 50, y + 70, d, C_ACCENT2)
-
-        # Aclarar por qué puede aparecer un cuarto dado en Clásico.
-        razon = r.get('razon_4_dados')
-        if razon:
-            aviso = self.font_sm.render('4 DADOS: ' + razon, True, C_ACCENT)
-            self.screen.blit(aviso, (x + (w - aviso.get_width()) // 2, y + 118))
-
-        # Bajas
-        bajas_txt = (f"Bajas Atk: {r.get('bajas_atk',0)}   "
-                     f"Bajas Def: {r.get('bajas_def',0)}")
-        bt = self.font_md.render(bajas_txt, True, C_TEXT)
-        self.screen.blit(bt, (x + (w - bt.get_width()) // 2, y + 140))
-
-        if r.get("conquisto"):
-            ct = self.font_lg.render(">>> CONQUISTA! <<<", True, C_ACCENT)
-            self.screen.blit(ct, (x + (w - ct.get_width()) // 2, y + 165))
-
-    def _dibujar_dado(self, x, y, valor, color):
-        """Dibuja un dado con valor."""
-        pygame.draw.rect(self.screen, (40, 40, 50), (x, y, 40, 40), border_radius=6)
-        pygame.draw.rect(self.screen, color, (x, y, 40, 40), 2, border_radius=6)
-        txt = self.font_xl.render(str(valor), True, color)
-        self.screen.blit(txt, (x + (40 - txt.get_width()) // 2,
-                                y + (40 - txt.get_height()) // 2))
+    def _dibujar_dado(self,x,y,valor,color,tamano=40):
+        pygame.draw.rect(self.screen,(29,42,58),(x,y,tamano,tamano),border_radius=5)
+        pygame.draw.rect(self.screen,color,(x,y,tamano,tamano),2,border_radius=5)
+        texto=self.font_md.render(str(valor),True,color)
+        self.screen.blit(texto,texto.get_rect(center=(x+tamano//2,y+tamano//2)))
 
     # ─── Mano de cartas: consultas, símbolos y selección de canjes ──
 
@@ -865,10 +1118,11 @@ class Renderer:
         # Nombres sobre el mapa: anillos alrededor de las fichas y etiquetas
         # diferenciadas por número, para que sean localizables aun si el mapa
         # original imprime el nombre debajo de un ejército.
-        pygame.draw.rect(self.screen,(12,29,45),(18,12,795,55),border_radius=10)
-        pygame.draw.rect(self.screen,(93,136,160),(18,12,795,55),1,border_radius=10)
-        self._texto('INSPECCIONÁ LOS PAÍSES MARCADOS',34,20,self.font_md,C_ACCENT,max_ancho=740)
-        self._texto('Mové el cursor o hacé clic en un ejército para consultar su país.',34,42,
+        cab_x=self.MAP_X+18
+        pygame.draw.rect(self.screen,(12,29,45),(cab_x,12,795,55),border_radius=10)
+        pygame.draw.rect(self.screen,(93,136,160),(cab_x,12,795,55),1,border_radius=10)
+        self._texto('INSPECCIONÁ LOS PAÍSES MARCADOS',cab_x+16,20,self.font_md,C_ACCENT,max_ancho=740)
+        self._texto('Mové el cursor o hacé clic en un ejército para consultar su país.',cab_x+16,42,
                     self.font_sm,C_TEXT,max_ancho=750)
 
         for i, foco in enumerate(focos):
@@ -889,7 +1143,7 @@ class Renderer:
             # cuando las fronteras están muy cerca (p. ej. Polonia-Albania).
             label = f'{i+1}  {pais}'
             ancho = min(245,self.font_md.size(label)[0]+22)
-            tx = max(7,min(self.MAP_W-ancho-7, cx-ancho//2))
+            tx = max(self.MAP_X+7,min(self.MAP_X+self.MAP_W-ancho-7, cx-ancho//2))
             ty = cy-78 if i % 2 == 0 else cy+41
             if i == 2:
                 ty = cy+54
@@ -903,7 +1157,7 @@ class Renderer:
 
         # Información del territorio bajo el cursor o seleccionado con clic.
         mouse = pygame.mouse.get_pos()
-        hover = self.pais_en_pos(mouse,juego.tablero) if mouse[0]<self.MAP_W else None
+        hover = self.pais_en_pos(mouse,juego.tablero) if self.MAP_X <= mouse[0] < self.MAP_X+self.MAP_W else None
         inspeccion = hover or pop.get('inspeccion')
         if inspeccion in juego.tablero:
             d = juego.tablero[inspeccion]
@@ -912,8 +1166,9 @@ class Renderer:
                         else 'Territorio compartido')
             linea = (f'{inspeccion}   ·   {nombre_j}   ·   '
                      f'{d["ejercitos"]} ejércitos   ·   {d["misiles"]} misiles')
-            pygame.draw.rect(self.screen,(9,26,44),(18,74, min(945,max(390,self.font_md.size(linea)[0]+36)),37),border_radius=7)
-            self._texto(linea,33,84,self.font_md,C_TEXT,max_ancho=920)
+            info_x=self.MAP_X+18
+            pygame.draw.rect(self.screen,(9,26,44),(info_x,74, min(945,max(390,self.font_md.size(linea)[0]+36)),37),border_radius=7)
+            self._texto(linea,info_x+15,84,self.font_md,C_TEXT,max_ancho=920)
 
         # Las decisiones aparecen a la derecha, SIN velo oscuro sobre el mapa.
         x, y, w, h = self.PANEL_X+10, 112, self.PANEL_W-20, 638
@@ -1001,7 +1256,7 @@ class Renderer:
     def _dibujar_menu_contextual(self):
         m=self.menu_contextual
         x,y=m['pos'];ancho=246;alto=44+len(m['items'])*37
-        x=max(8,min(x,self.MAP_W-ancho-8));y=max(8,min(y,self.MAP_H-alto-8))
+        x=max(self.MAP_X+8,min(x,self.MAP_X+self.MAP_W-ancho-8));y=max(8,min(y,self.MAP_H-alto-8))
         sombra=pygame.Rect(x+3,y+3,ancho,alto)
         pygame.draw.rect(self.screen,(7,17,28),sombra,border_radius=11)
         pygame.draw.rect(self.screen,(23,41,63),(x,y,ancho,alto),border_radius=11)
@@ -1268,7 +1523,7 @@ class Renderer:
     def pais_en_pos(self, pos, tablero) -> str | None:
         """Detecta el pais mas cercano al clic (radio de tolerancia)."""
         mx, my = pos
-        if mx >= self.MAP_W:
+        if mx < self.MAP_X or mx >= self.MAP_X + self.MAP_W:
             return None
         mejor = None
         mejor_dist = self.RADIO_TOKEN + 8
@@ -1290,6 +1545,7 @@ class Renderer:
         seleccion=4
         color_humano=0
         permitir_destruccion=True
+        animaciones=True
         running=True
         mapa_portada=pygame.transform.smoothscale(self.mapa,(750,563))
         while running:
@@ -1359,17 +1615,29 @@ class Renderer:
                         self.font_md,C_TEXT)
             self._texto('Solo afecta partidas de 4 a 6 jugadores',check_rect.x+50,check_rect.y+29,
                         self.font_micro,C_TEXT_DIM)
-            jugar_rect=pygame.Rect(dx+29,dy+435,dw-58,58)
+            anim_rect=pygame.Rect(dx+29,dy+431,dw-58,52)
+            pygame.draw.rect(self.screen,(33,57,78),anim_rect,border_radius=10)
+            pygame.draw.rect(self.screen,C_ACCENT2 if animaciones else C_PANEL_BORDER,
+                             anim_rect,2 if animaciones else 1,border_radius=10)
+            cuadrado2=pygame.Rect(anim_rect.x+12,anim_rect.y+13,26,26)
+            pygame.draw.rect(self.screen,C_SUCCESS if animaciones else (30,44,59),cuadrado2,border_radius=5)
+            self._texto('✓' if animaciones else ' ',cuadrado2.x+4,cuadrado2.y+1,
+                        self.font_lg,(12,35,42))
+            self._texto('MOSTRAR ANIMACIONES Y EVENTOS VISUALES',anim_rect.x+50,anim_rect.y+7,
+                        self.font_md,C_TEXT)
+            self._texto('Ataques, refuerzos, reagrupes y canjes visibles',anim_rect.x+50,anim_rect.y+29,
+                        self.font_micro,C_TEXT_DIM)
+            jugar_rect=pygame.Rect(dx+29,dy+498,dw-58,58)
             hover=jugar_rect.collidepoint(pygame.mouse.get_pos())
             pygame.draw.rect(self.screen,(38,136,139) if hover else (28,106,114),jugar_rect,border_radius=12)
             pygame.draw.rect(self.screen,C_ACCENT2,jugar_rect,2,border_radius=12)
             start_txt=self.font_lg.render('COMENZAR PARTIDA   →',True,C_TEXT)
             self.screen.blit(start_txt,start_txt.get_rect(center=jugar_rect.center))
-            self._texto('CONTROLES',dx+29,dy+508,self.font_micro,C_ACCENT)
+            self._texto('CONTROLES',dx+29,dy+571,self.font_micro,C_ACCENT)
             self._texto('Clic: países y acciones    •    T: cartas    •    O: objetivos',
-                        dx+29,dy+530,self.font_sm,C_TEXT_DIM,max_ancho=dw-53)
+                        dx+29,dy+593,self.font_sm,C_TEXT_DIM,max_ancho=dw-53)
             self._texto('F: bots    •    H: historial    •    Espacio: fase    •    ESC: salir',
-                        dx+29,dy+554,self.font_sm,C_TEXT_DIM,max_ancho=dw-53)
+                        dx+29,dy+617,self.font_sm,C_TEXT_DIM,max_ancho=dw-53)
             self._texto('TEG LA REVANCHA  |  PYGAME  |  MODO LOCAL',72,812,
                         self.font_micro,C_TEXT_DIM)
             self._texto('Reglas y mapa del material oficial proporcionado',72,834,
@@ -1386,7 +1654,8 @@ class Renderer:
                     for rect,i in colores_rect:
                         if rect.collidepoint(ev.pos):color_humano=i
                     if check_rect.collidepoint(ev.pos):permitir_destruccion=not permitir_destruccion
+                    if anim_rect.collidepoint(ev.pos):animaciones=not animaciones
                     if jugar_rect.collidepoint(ev.pos):running=False
                 if ev.type==pygame.KEYDOWN and ev.key==pygame.K_RETURN:
                     running=False
-        return seleccion,color_humano,permitir_destruccion
+        return seleccion,color_humano,permitir_destruccion,animaciones
