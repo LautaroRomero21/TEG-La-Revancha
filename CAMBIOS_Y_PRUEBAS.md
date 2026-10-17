@@ -1,3 +1,13 @@
+# Versión 14 — Cambio de color de una conquista después de visualizar el ataque (octubre 2026)
+
+1. El resultado de `JuegoTEG.atacar` y los ataques contra condominios incluyen datos de los propietarios y ejércitos defensores anteriores a la tirada. Esto no cambia la mecánica de combate.
+2. `Renderer` guarda instantáneas visuales temporales de países conquistados: 950 ms con el color y tropas previas, después cambia al dueño real. Es solo una presentación, no un retraso en la conquista lógica.
+3. En la columna izquierda aparece el color atacante y el color defensor, junto a las bajas y la ruta. Si un país se utiliza inmediatamente como origen de un nuevo ataque, su transición se cierra para que no parezca que ataca el defensor derrotado.
+4. La opción prepartida para desactivar animaciones sigue funcionando: sin efectos, el cambio de dueño es inmediato. Los ataques no conquistadores y los misiles no generan transiciones de propiedad.
+5. Se añadieron 6 tests específicos (`test_correcciones_v14.py`) y se mantienen las 120 pruebas anteriores (**126/126**). Validación gráfica final pendiente de ejecutar con Pygame en Windows.
+
+---
+
 # Versión 12 — Tarjetas, combates animados y frontera Nigeria–Angola (octubre 2026)
 
 1. **Máximo cinco tarjetas de país:** comprobado el control existente en `puede_solicitar_tarjeta()` y `solicitar_tarjeta()`; el botón se deshabilita al alcanzar cinco y los bots pasan el turno sin robar. Las tarjetas de continente son independientes del límite. Siete casos de regresión comprueban el límite, una quinta carta válida y la separación de continentes.

@@ -501,6 +501,8 @@ class DiplomaciaMixin:
             self._verificar_eliminacion(defensor_idx,actor)
         self.log(f'ATAQUE CONDOMINIO {desde} -> {pais} (contra {self.jugadores[defensor_idx].color_nombre}): {da} vs {dd} {ba}/{bd}')
         res.update(ok=True,dados_atk=da,dados_def=dd,bajas_atk=ba,bajas_def=bd,
-                   conquisto=expulsado,desde=desde,hacia=pais,razon_4_dados=razon_4_dados)
+                   conquisto=expulsado,desde=desde,hacia=pais,razon_4_dados=razon_4_dados,
+                   atacante_idx=actor,defensor_anterior_idx=defensor_idx,
+                   ejercitos_defensor_antes=b)
         self._verificar_victoria(self.jugadores[actor])
         return res

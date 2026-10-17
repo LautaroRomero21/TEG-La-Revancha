@@ -141,6 +141,9 @@ class Renderer:
         # el mapa, incluso cuando el bot realiza acciones encadenadas.
         self.combate_visual = None
         self.ultima_conquista_visual = None
+        # Países recién conquistados: el motor cambia de dueño inmediatamente,
+        # pero se conserva brevemente el defensor en el mapa para ver el ataque.
+        self.transiciones_conquista = {}
         self.incorporacion_visual = None
         self.reagrupe_visual = None
         self.canje_visual = None
@@ -374,7 +377,9 @@ class Renderer:
             c=self.combate_visual
             titulo='ATAQUE EN CURSO'
             color=C_HIGHLIGHT_ATK if c['tipo']!='misil' else C_ACCENT
-            lineas=[f"{c['desde']} → {c['hacia']}",
+            duelo=(f"{c['atacante_color_nombre']} ataca a {c['defensor_color_nombre']}"
+                  if c.get('defensor_color_nombre') else c['jugador'])
+            lineas=[duelo, f"{c['desde']} → {c['hacia']}",
                     ('Conquista confirmada' if c.get('conquista') else 'Combate activo'),
                     f"Bajas A/D: {c.get('bajas_atk',0)} / {c.get('bajas_def',0)}"]
         elif self.reagrupe_visual:
@@ -457,13 +462,43 @@ class Renderer:
     def _dibujar_ayuda_mapa(self, juego):
         return
 
+    def _estado_visual_token(self, pais, juego, ahora=None):
+        """Devuelve la ficha a dibujar sin alterar nunca el tablero real.
+
+        Un país conquistado mantiene brevemente el color PREVIO del defensor,
+        y después revela el color y las tropas reales del vencedor. Un ataque
+        posterior desde ese mismo país lo revela inmediatamente para evitar
+        que parezca que un color enemigo lanzó el siguiente ataque.
+        """
+        datos=juego.tablero[pais]
+        actual=(datos['propietario'],datos['ejercitos'])
+        if not getattr(self,'animaciones_activas',True):
+            return actual
+        transiciones=getattr(self,'transiciones_conquista',{})
+        trans=transiciones.get(pais)
+        if not trans:
+            return actual
+        tiempo=pygame.time.get_ticks() if ahora is None else ahora
+        transcurrido=tiempo-trans['inicio']
+        if (transcurrido>=trans['duracion'] or
+            datos['propietario']!=trans['atacante_idx']):
+            transiciones.pop(pais,None)
+            return actual
+        nuevo_ataque=getattr(self,'combate_visual',None)
+        if (nuevo_ataque and nuevo_ataque['desde']==pais and
+            nuevo_ataque['inicio']>trans['inicio']):
+            transiciones.pop(pais,None)
+            return actual
+        if transcurrido<trans['mostrar_defensor_ms']:
+            return (trans['defensor_idx'],trans['ejercitos_defensor'])
+        return actual
+
     def _dibujar_tokens(self, juego):
-        """Dibuja un circulo por pais con el color del dueno y ejercitos."""
+        """Dibuja las fichas, manteniendo el color anterior en una conquista animada."""
         for nombre, datos in juego.tablero.items():
             cx, cy = self._escalar_coords(datos["coords"])
-            dueno_idx = datos["propietario"]
+            dueno_idx,ejercitos=self._estado_visual_token(nombre,juego)
             color = juego.jugadores[dueno_idx].color if dueno_idx is not None else (100, 100, 100)
-            ejercitos = datos["ejercitos"]
             misiles   = datos["misiles"]
 
             # Determinar borde segun seleccion
@@ -757,17 +792,23 @@ class Renderer:
         """
         if desde not in juego.tablero or hacia not in juego.tablero:
             return False
-        idx=juego.turno_idx if jugador_idx is None else jugador_idx
+        idx=(jugador_idx if jugador_idx is not None else
+             (resultado or {}).get('atacante_idx',juego.turno_idx))
         if idx is None or not 0 <= idx < len(juego.jugadores):
             return False
         ahora=pygame.time.get_ticks()
         conquista=bool(resultado and resultado.get('conquisto'))
         color=juego.jugadores[idx].color
+        anterior=(resultado or {}).get('defensor_anterior_idx')
+        defensor_nombre=(juego.jugadores[anterior].color_nombre
+                         if isinstance(anterior,int) and 0<=anterior<len(juego.jugadores) else None)
         self.combate_visual={
             'desde':desde, 'hacia':hacia,
             'pos_desde':self._escalar_coords(juego.tablero[desde]['coords']),
             'pos_hacia':self._escalar_coords(juego.tablero[hacia]['coords']),
             'jugador':juego.jugadores[idx].nombre,
+            'atacante_color_nombre':juego.jugadores[idx].color_nombre,
+            'defensor_color_nombre':defensor_nombre,
             'color':color, 'tipo':tipo, 'conquista':conquista,
             'bajas_atk':(resultado or {}).get('bajas_atk',0),
             'bajas_def':(resultado or {}).get('bajas_def',0),
@@ -776,6 +817,20 @@ class Renderer:
             # parpadea ni consume los eventos del juego.
             'duracion':1450 if conquista else 1050,
         }
+        if (conquista and getattr(self,'animaciones_activas',True) and
+            defensor_nombre and anterior!=idx and
+            hacia not in juego.condominios and
+            juego.tablero[hacia]['propietario']==idx and
+            (resultado or {}).get('ejercitos_defensor_antes',0)>0):
+            # Se muestra el rival al principio del ataque y recién después
+            # el nuevo propietario. Funciona igual para humanos y bots.
+            if not hasattr(self,'transiciones_conquista'):
+                self.transiciones_conquista={}
+            self.transiciones_conquista[hacia]={
+                'inicio':ahora,'duracion':1450,'mostrar_defensor_ms':950,
+                'defensor_idx':anterior,'atacante_idx':idx,
+                'ejercitos_defensor':resultado['ejercitos_defensor_antes'],
+            }
         if conquista:
             self.ultima_conquista_visual={
                 'pais':hacia, 'jugador':juego.jugadores[idx].nombre,
@@ -905,9 +960,6 @@ class Renderer:
             pygame.draw.circle(self.screen,(11,21,32),posicion,radio+5,4)
             pygame.draw.circle(self.screen,col,posicion,radio,4)
             pygame.draw.circle(self.screen,col,posicion,radio+8,1)
-        # Etiquetas ubicadas fuera de las fichas, para distinguir países.
-        self._etiqueta_combate('SALE: '+c['desde'],(ax,ay),ay-64,tono)
-        self._etiqueta_combate('OBJETIVO: '+c['hacia'],(bx,by),by+32,defensa)
         # Los datos del combate se muestran en la columna izquierda.
         if c['conquista']:
             pygame.draw.circle(self.screen,C_ACCENT,(bx,by),radio+15,3)

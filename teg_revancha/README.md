@@ -1,3 +1,13 @@
+## Novedad de la versión 14 — Conquistas con cambio de color visible
+
+- **Color del defensor durante el ataque:** al conquistar un país, la animación muestra primero el color y las tropas que tenía el defensor en el instante previo a la tirada (950 ms), y después revela el color del conquistador. Esto evita que parezca que un jugador ataca a su propio ejército.
+- **Identificación explícita de ambos colores:** el centro de eventos de la izquierda muestra «Amarillo ataca a Azul», la ruta de origen y destino y las bajas.
+- **Sin alterar las reglas:** el motor sigue resolviendo la conquista inmediatamente; el retardo es exclusivamente gráfico. Si se desactivan las animaciones antes de empezar, el color cambia inmediatamente.
+- **Ataques sucesivos:** si un bot ataca desde un país recién tomado, se muestra inmediatamente el nuevo dueño de ese país para evitar confusiones.
+- **Verificación:** `python -m unittest -q` (126 pruebas, incluidas 6 nuevas en `test_correcciones_v14.py`).
+
+---
+
 ## Novedades de la versión 12 — Batallas fáciles de seguir
 
 - **Animación sobre el mapa:** cada ataque muestra una ruta resaltada desde el país atacante hacia el defensor, halos pulsantes, un proyectil en movimiento y etiquetas con los nombres de ambos países. Funciona tanto para combates de bots como para ataques del jugador; los lanzamientos de misiles se destacan con otro color.

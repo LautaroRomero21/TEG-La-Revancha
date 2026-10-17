@@ -516,6 +516,10 @@ class JuegoTEG(DiplomaciaMixin):
             self.ejercitos_de(desde,actor)<2 or not isinstance(n_dados_atk,int) or n_dados_atk<1):
             return res
         a=self.tablero[desde]; b=self.tablero[hacia]
+        # Instantánea previa a la tirada: permite al renderer enseñar el color
+        # del defensor aun cuando la conquista ya cambió el dueño en el motor.
+        defensor_anterior_idx=b['propietario']
+        ejercitos_defensor_antes=b['ejercitos']
         if desde in self.condominios and b['propietario'] in self.condominios[desde]:return res
         tropas_actor=self.ejercitos_de(desde,actor)
         maxatk,razon_4_dados=self._dados_para_ataque(tropas_actor,b['ejercitos'])
@@ -566,7 +570,9 @@ class JuegoTEG(DiplomaciaMixin):
         self.log(f'ATAQUE {desde}->{hacia}: {da} vs {dd}; pérdidas {ba}/{bd}' + (' CONQUISTA' if conquisto else '')
                  + (f' | 4 DADOS: {razon_4_dados}' if razon_4_dados else ''))
         res.update(ok=True,dados_atk=da,dados_def=dd,bajas_atk=ba,bajas_def=bd,
-                   conquisto=conquisto,desde=desde,hacia=hacia,razon_4_dados=razon_4_dados)
+                   conquisto=conquisto,desde=desde,hacia=hacia,razon_4_dados=razon_4_dados,
+                   atacante_idx=actor,defensor_anterior_idx=defensor_anterior_idx,
+                   ejercitos_defensor_antes=ejercitos_defensor_antes)
         if not self.conquista_pendiente and not conjunto:
             self._verificar_victoria(self.jugadores[actor])
         return res
