@@ -689,6 +689,12 @@ class Renderer:
         for i, d in enumerate(r.get("dados_def", [])):
             self._dibujar_dado(x + 280 + i * 50, y + 70, d, C_ACCENT2)
 
+        # Aclarar por qué puede aparecer un cuarto dado en Clásico.
+        razon = r.get('razon_4_dados')
+        if razon:
+            aviso = self.font_sm.render('4 DADOS: ' + razon, True, C_ACCENT)
+            self.screen.blit(aviso, (x + (w - aviso.get_width()) // 2, y + 118))
+
         # Bajas
         bajas_txt = (f"Bajas Atk: {r.get('bajas_atk',0)}   "
                      f"Bajas Def: {r.get('bajas_def',0)}")

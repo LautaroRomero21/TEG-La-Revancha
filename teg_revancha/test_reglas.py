@@ -379,7 +379,7 @@ class Reglas(unittest.TestCase):
         self.assertEqual([j.valor_canje() for _ in [1]], [6])
         valores=[]
         for n in range(7):
-            j.canje_numero=n
+            j.jugador_actual().canjes_realizados=n
             valores.append(j.valor_canje())
         self.assertEqual(valores,[6,10,15,20,25,30,35])
         self.assertTrue(_tres_figuras_validas(['Avion','Soldado','Barco']))
@@ -449,8 +449,8 @@ class Reglas(unittest.TestCase):
         j=self.preparar_ataque('Alaska','Canada',7,8)
         j.tablero['Alaska']['misiles']=3
         self.assertEqual(j.distancia('Alaska','Terranova'),2)
-        self.assertEqual(j.distancia('Alaska','Nueva York'),3)
-        for objetivo,daño in [('Terranova',2),('Nueva York',1)]:
+        self.assertEqual(j.distancia('Alaska','Chicago'),3)
+        for objetivo,daño in [('Terranova',2),('Chicago',1)]:
             j.tablero[objetivo]['propietario']=1
             j.tablero[objetivo]['ejercitos']=8
             self.assertTrue(j.lanzar_misil(objetivo,desde='Alaska'))
@@ -467,11 +467,16 @@ class Reglas(unittest.TestCase):
         self.assertEqual(pl.tarjetas,[])
         self.assertEqual(j.canjear_tarjetas(),0) # máximo 1 canje
         j.ronda+=1
+        # La carta solo puede canjearse si todavía controla TODO el continente.
+        for pais, datos in j.tablero.items():
+            if datos['continente']=='Europa': datos['propietario']=j.turno_idx
         pl.cartas_continente.add('Europa')
         self.assertEqual(j.canjear_tarjetas(),10)
         self.assertIn('Europa',pl.continentes_usados)
         j.ronda+=1
         pl.tarjetas=[next(p for p,f in j.figuras_cartas.items() if f=='Barco')]
+        for pais, datos in j.tablero.items():
+            if datos['continente']=='Africa': datos['propietario']=j.turno_idx
         pl.cartas_continente.add('Africa')
         # África = avión+barco, se necesitan las 3 variables: barco+barco+avión no vale
         self.assertIsNone(j.opcion_canje(pl))

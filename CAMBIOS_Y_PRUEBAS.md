@@ -1,3 +1,27 @@
+# Versión 11 — Dados, bloqueos, continentales y fronteras (octubre 2026)
+
+1. **Aclaración de dados (pág. 12):** se respeta el cuarto dado reglamentario con defensores >=3 y fuerzas atacantes >=2x, incluso en Combate clásico. Se centralizó el cálculo entre batallas normales y condominios y se muestra la razón en la animación de dados y en el historial. Caso reproducido de tres tiradas sucesivas **3→4→3** sin viento.
+2. **Bloqueos (págs. 18–19):** se validan tres o más vecinos, todos del mismo adversario con al menos dos tropas, se prohíben refuerzos/premios pero se permiten ataques, con las excepciones de preparación y último país. Los condominios no cuentan como un bloqueador unicolor.
+3. **Tarjetas continentales (pág. 21):** la revocación de tarjeta no usada es inmediata al perder dominio, sea por conquista de un rival o creación/cambio de condominio. `opcion_canje()` y `canje_valido()` verifican la propiedad actual en cada consulta; no se permite gastar tarjetas obsoletas. Se recuperan al reconquistar, siempre que ese jugador nunca haya canjeado esa carta.
+4. **Conexiones:** bajas de Nueva York–Terranova y Noruega–Bielorrusia (ambos sentidos), total 136 fronteras del grafo no dirigido.
+5. **Pruebas de regresión:** nuevo `test_correcciones_v11.py` (15 casos); actualizado `test_reglas.py` con rutas de misiles y canjes con propiedad legítima conforme a las nuevas conexiones/reglas. **113/113 unittest**, 50 simulaciones de bots entre 2 y 6 jugadores hasta ronda 5/victoria, sin excepciones ni estados negativos.
+
+La interfaz de Pygame debe verificarse visualmente en Windows (paquete no instalado en el entorno de pruebas).
+
+---
+
+# Versión 10 — Premios de tarjetas y canjes personales (octubre 2026)
+
+1. **Canjes independientes:** la serie 6, 10, 15, 20, 25… es por jugador. Antes se usaba `canje_numero` global y el humano podía recibir 10 en su primer canje si un bot había hecho el primero de la partida. Ahora `valor_canje(jugador=None)` usa `jugador.canjes_realizados`; `canje_numero` continúa contando el total de canjes de la partida sin alterar los valores personales. Aplica también a canjes de bots y tarjetas continentales. El historial identifica el ordinal del canje del jugador.
+2. **Premios +3 verificados:** la carta de un país que el jugador controla acredita automáticamente tres ejércitos al robarla. Si la carta ya se posee pero el país se conquista más tarde, el premio se concede al entrar en la etapa TARJETA de ese turno. Se concede una vez por carta durante su posesión, sin consumirla. Se mantienen las excepciones oficiales: bloqueo y zona internacional vigente, con acreditación pendiente si cesa la restricción.
+3. **Tarjetas heredadas:** se corrigió un caso de premio omitido: al eliminar a otro jugador, sus tarjetas pasaban al vencedor, pero el motor las marcaba todas como si ya hubieran dado +3. Ahora las tarjetas transferidas pueden dar premio al nuevo titular al finalizar su turno si controla el país.
+4. **Interfaz:** el popup de tarjeta obtenida muestra si acaba de acreditarse +3, si está pendiente por bloqueo/zona, o si el premio podrá ganarse conquistando el país mientras se conserve la carta.
+5. **Regresión:** ocho pruebas nuevas en `test_correcciones_v10.py`, desde canjes cruzados con bots hasta premios por posesión, conquista, bloqueo y herencia; 98 pruebas totales.
+
+**Verificación:** `python -m unittest -q test_reglas test_pactos test_correcciones_v7 test_correcciones_v8 test_correcciones_v9 test_correcciones_v10`, compilación de todos los módulos y paquete ZIP íntegro. La interfaz Pygame requiere prueba visual en Windows.
+
+---
+
 # Versión 9 — Compra de misiles sin bonos continentales (octubre 2026)
 
 1. **Cierre corregido:** `incorporar_misil()` en `logic.py` lanzaba `KeyError` al comprar un misil en un país de un continente que no figuraba como clave en `refuerzos_continente`. Se verificó que ocurría también fuera de Oceanía. Ahora solo se descuenta el fondo continental si efectivamente financia parte del costo.

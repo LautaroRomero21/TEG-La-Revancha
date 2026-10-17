@@ -259,12 +259,50 @@ class JuegoTEG(DiplomaciaMixin):
         vecinos = self.tablero[pais]['fronteras']
         if len(vecinos) < 3 or len(self.paises_de(self.tablero[pais]['propietario'])) == 1:
             return False
+        # El bloqueo exige que TODOS los limítrofes sean del mismo color.
+        # Un país en condominio no es propiedad exclusiva de un único color.
+        if any(v in self.condominios for v in vecinos):
+            return False
         dueños = {self.tablero[v]['propietario'] for v in vecinos}
-        return (len(dueños)==1 and self.tablero[pais]['propietario'] not in dueños
+        return (len(dueños)==1 and None not in dueños
+                and self.tablero[pais]['propietario'] not in dueños
                 and all(self.tablero[v]['ejercitos']>=2 for v in vecinos))
 
     def _controla_continente(self, j, cont):
         return all(d['propietario']==j for d in self.tablero.values() if d['continente']==cont)
+
+    def _revocar_tarjetas_continente_por_perdida(self, continente=None):
+        """Revoca inmediatamente tarjetas cuyo continente dejó de controlarse.
+
+        Se llama al cambiar una propiedad (conquistas normales y condominios).
+        Una tarjeta que ya fue canjeada nunca se devuelve.
+        """
+        continentes=(continente,) if continente is not None else CONTINENTES
+        for cont in continentes:
+            for jugador in self.jugadores:
+                if cont in jugador.cartas_continente and not self._controla_continente(jugador.idx,cont):
+                    jugador.cartas_continente.discard(cont)
+                    self.log(f'{jugador.nombre} pierde tarjeta de continente: {cont}')
+
+    def _dados_para_ataque(self, tropas_atacantes, tropas_defensoras):
+        """Dados automáticos según pág. 12 del reglamento.
+
+        La ventaja de doble fuerza puede dar un cuarto dado aun en Clásico.
+        El viento también da un dado adicional, siempre hasta cuatro.
+        """
+        cantidad=min(3,tropas_atacantes-1)
+        ventaja=(tropas_defensoras>=3 and tropas_atacantes>=2*tropas_defensoras)
+        if ventaja:
+            cantidad=4
+        viento=self.situacion=='Viento a favor'
+        if viento:
+            cantidad=min(4,cantidad+1)
+        razon=None
+        if cantidad==4:
+            if ventaja and viento:razon='DOBLE FUERZA / VIENTO A FAVOR'
+            elif ventaja:razon='DOBLE FUERZA (regla oficial)'
+            else:razon='VIENTO A FAVOR'
+        return cantidad,razon
 
     def _calcular_incorporacion(self, jugador):
         base = ejercitos_por_paises(len(self.paises_exclusivos(jugador.idx)))
@@ -480,12 +518,7 @@ class JuegoTEG(DiplomaciaMixin):
         a=self.tablero[desde]; b=self.tablero[hacia]
         if desde in self.condominios and b['propietario'] in self.condominios[desde]:return res
         tropas_actor=self.ejercitos_de(desde,actor)
-        # 4 dados si el atacante duplica las fuerzas del defensor (defensor >=3).
-        maxatk=min(3,tropas_actor-1)
-        if b['ejercitos']>=3 and tropas_actor>=2*b['ejercitos']:
-            maxatk=4
-        if self.situacion=='Viento a favor':
-            maxatk=min(4,maxatk+1)
+        maxatk,razon_4_dados=self._dados_para_ataque(tropas_actor,b['ejercitos'])
         maxdef=min(3,b['ejercitos'])
         if self.situacion=='Nieve': maxdef=min(4,maxdef+1)
         da=sorted((random.randint(1,6) for _ in range(maxatk)),reverse=True)
@@ -498,6 +531,9 @@ class JuegoTEG(DiplomaciaMixin):
         if conquisto:
             anterior=b['propietario']
             b['propietario']=actor
+            # Una tarjeta de continente pendiente se devuelve en el instante
+            # en que deja de controlarse todo el continente, NO en el próximo turno.
+            self._revocar_tarjetas_continente_por_perdida(b['continente'])
             zona_al_conquistar=self.zona_para(hacia)
             cumplir_zona=bool(zona_al_conquistar and zona_al_conquistar['pendiente']==actor)
             self._cambio_control_diplomatico(hacia,anterior,actor)
@@ -527,9 +563,10 @@ class JuegoTEG(DiplomaciaMixin):
                                               'max_pasar':max_pasar,'disponibles':disponibles}
             self._ultimo_atacante=actor
             self._verificar_eliminacion(anterior, actor)
-        self.log(f'ATAQUE {desde}->{hacia}: {da} vs {dd}; pérdidas {ba}/{bd}' + (' CONQUISTA' if conquisto else ''))
+        self.log(f'ATAQUE {desde}->{hacia}: {da} vs {dd}; pérdidas {ba}/{bd}' + (' CONQUISTA' if conquisto else '')
+                 + (f' | 4 DADOS: {razon_4_dados}' if razon_4_dados else ''))
         res.update(ok=True,dados_atk=da,dados_def=dd,bajas_atk=ba,bajas_def=bd,
-                   conquisto=conquisto,desde=desde,hacia=hacia)
+                   conquisto=conquisto,desde=desde,hacia=hacia,razon_4_dados=razon_4_dados)
         if not self.conquista_pendiente and not conjunto:
             self._verificar_victoria(self.jugadores[actor])
         return res
@@ -560,10 +597,13 @@ class JuegoTEG(DiplomaciaMixin):
             atacante=self.jugadores[atacante_idx]
             total=len(victima.tarjetas)
             atacante.tarjetas.extend(victima.tarjetas)
-            # No se conceden premios duplicados al recibir tarjetas heredadas.
-            atacante.tarjetas_premiadas.update(victima.tarjetas)
+            # Las tarjetas heredadas dan derecho al premio si el nuevo titular
+            # también posee el país correspondiente. Su uso por el jugador
+            # eliminado no cancela el derecho del nuevo propietario.
+            # El premio se comprueba al llegar a la fase TARJETA.
             self.log(f'{atacante.nombre} hereda {total} tarjetas de {victima.nombre}')
         victima.tarjetas.clear()
+        victima.tarjetas_premiadas.clear()
         for jugador in self.jugadores:
             for obj in jugador.objetivos:
                 if obj['tipo']=='eliminacion' and obj['objetivo_idx']==victima_idx:
@@ -644,10 +684,16 @@ class JuegoTEG(DiplomaciaMixin):
         self.log(f'Misil reagrupado {desde}->{hacia}')
         return True
 
-    def valor_canje(self):
-        if self.canje_numero==0:return 6
-        if self.canje_numero==1:return 10
-        return 10 + 5*(self.canje_numero-1)
+    def valor_canje(self, jugador=None):
+        """Valor del próximo canje DE ESE JUGADOR.
+
+        Cada participante inicia su propia secuencia con 6, 10, 15, 20...
+        No se ve afectada por los canjes de los bots o de otros jugadores.
+        """
+        jugador = jugador if jugador is not None else self.jugador_actual()
+        anteriores = jugador.canjes_realizados
+        if anteriores == 0:return 6
+        return 10 + 5 * (anteriores - 1)
 
     def combinacion_canje(self, jugador=None):
         """Devuelve combinación de 3 cartas de país válida, si existe."""
@@ -670,9 +716,10 @@ class JuegoTEG(DiplomaciaMixin):
         for i,carta in enumerate(jugador.tarjetas):
             if self.figuras_cartas[carta]=='Super':return [i],[]
         for c in ('America del Norte','Europa','Asia'):
-            if c in jugador.cartas_continente:return [],[c]
+            if c in jugador.cartas_continente and self._controla_continente(jugador.idx,c):return [],[c]
         # Combinación de tres símbolos, mediante tarjetas de país y continentes.
-        continentales=sorted(jugador.cartas_continente)
+        continentales=sorted(c for c in jugador.cartas_continente
+                             if self._controla_continente(jugador.idx,c))
         for n_cont in range(min(3,len(continentales))+1):
             for conts in combinations(continentales,n_cont):
                 simbolos=[]
@@ -692,7 +739,9 @@ class JuegoTEG(DiplomaciaMixin):
         indices=list(indices);conts=list(continentes)
         if len(set(indices))!=len(indices) or len(set(conts))!=len(conts):return False
         if any(not isinstance(i,int) or not 0<=i<len(jugador.tarjetas) for i in indices):return False
-        if any(c not in jugador.cartas_continente for c in conts):return False
+        if any(c not in jugador.cartas_continente or
+               c in jugador.continentes_usados or
+               not self._controla_continente(jugador.idx,c) for c in conts):return False
         figs=[self.figuras_cartas[jugador.tarjetas[i]] for i in indices]
         if len(indices)==1 and not conts and figs==['Super']:return True
         if not indices and len(conts)==1 and conts[0] in ('America del Norte','Europa','Asia'):return True
@@ -719,12 +768,13 @@ class JuegoTEG(DiplomaciaMixin):
         for c in conts:
             jugador.cartas_continente.remove(c)
             jugador.continentes_usados.add(c)
-        beneficio=self.valor_canje()
-        self.canje_numero+=1
+        beneficio=self.valor_canje(jugador)
+        ordinal=jugador.canjes_realizados+1
+        self.canje_numero+=1  # Total de canjes de la partida; no fija su valor.
         jugador.canjes_realizados+=1
         jugador.canje_ultima_ronda=self.ronda
         self.ejercitos_a_colocar+=beneficio
-        self.log(f'CANJE {jugador.nombre}: +{beneficio} ejércitos')
+        self.log(f'CANJE {ordinal} de {jugador.nombre}: +{beneficio} ejércitos')
         return beneficio
 
     def _premios_tarjetas(self, jugador):

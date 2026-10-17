@@ -44,6 +44,8 @@ class DiplomaciaMixin:
             self.condominios[pais] = tropas
             self.tablero[pais]['propietario'] = None
             self.tablero[pais]['ejercitos'] = sum(tropas.values())
+        # Cambiar un país a condominio puede romper el control de un continente.
+        self._revocar_tarjetas_continente_por_perdida(self.tablero[pais]['continente'])
 
     def _ajustar_guarnicion(self, pais, jugador_idx, delta):
         if pais in self.condominios:
@@ -464,9 +466,7 @@ class DiplomaciaMixin:
             set(p['jugadores'])=={actor,defensor_idx} for p in self.pactos):return res
         a=self.ejercitos_de(desde,actor); b=self.ejercitos_de(pais,defensor_idx)
         if a<2 or b<1:return res
-        max_atk=min(3,a-1)
-        if b>=3 and a>=2*b:max_atk=4
-        if self.situacion=='Viento a favor':max_atk=min(4,max_atk+1)
+        max_atk,razon_4_dados=self._dados_para_ataque(a,b)
         max_def=min(3,b)
         if self.situacion=='Nieve':max_def=min(4,max_def+1)
         da=sorted((random.randint(1,6) for _ in range(max_atk)),reverse=True)
@@ -494,11 +494,13 @@ class DiplomaciaMixin:
                             self.condominios[pais]={actor:max_pasar,otro:self.tablero[pais]['ejercitos']}
                     if pais in self.condominios:self._sincronizar_condominio(pais)
                     self.conquisto_pais=True;self.conquistas_turno+=1
+                self._revocar_tarjetas_continente_por_perdida(self.tablero[pais]['continente'])
             for p in self.pactos_vigentes():
                 if (p['tipo']=='condominio' and p['pais']==pais) or p.get('condominio_origen')==pais:
                     p['activo']=False
             self._verificar_eliminacion(defensor_idx,actor)
         self.log(f'ATAQUE CONDOMINIO {desde} -> {pais} (contra {self.jugadores[defensor_idx].color_nombre}): {da} vs {dd} {ba}/{bd}')
-        res.update(ok=True,dados_atk=da,dados_def=dd,bajas_atk=ba,bajas_def=bd,conquisto=expulsado,desde=desde,hacia=pais)
+        res.update(ok=True,dados_atk=da,dados_def=dd,bajas_atk=ba,bajas_def=bd,
+                   conquisto=expulsado,desde=desde,hacia=pais,razon_4_dados=razon_4_dados)
         self._verificar_victoria(self.jugadores[actor])
         return res

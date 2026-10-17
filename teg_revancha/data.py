@@ -1,7 +1,7 @@
 """
 data.py - Datos del tablero TEG La Revancha
 Contiene los 72 paises, sus continentes, fronteras y coordenadas en el mapa.
-Fronteras ajustadas segun las conexiones revisadas hasta la v8, en ambos sentidos.
+Fronteras ajustadas segun las conexiones revisadas hasta la v11, en ambos sentidos.
 """
 
 # ─────────────────────────────────────────────
@@ -28,8 +28,8 @@ PAISES_DATA = {
     'Groenlandia': {"continente": 'America del Norte', "fronteras": ['Isla Victoria', 'Islandia', 'Labrador', 'Nueva York'], "coords": (430, 81)},
     'Labrador': {"continente": 'America del Norte', "fronteras": ['Groenlandia', 'Terranova'], "coords": (345, 130)},
     'Oregon': {"continente": 'America del Norte', "fronteras": ['Canada', 'Chicago', 'Las Vegas', 'Terranova'], "coords": (185, 248)},
-    'Terranova': {"continente": 'America del Norte', "fronteras": ['Canada', 'Chicago', 'Labrador', 'Nueva York', 'Oregon'], "coords": (270, 208)},
-    'Nueva York': {"continente": 'America del Norte', "fronteras": ['Chicago', 'Groenlandia', 'Terranova'], "coords": (390, 205)},
+    'Terranova': {"continente": 'America del Norte', "fronteras": ['Canada', 'Chicago', 'Labrador', 'Oregon'], "coords": (270, 208)},
+    'Nueva York': {"continente": 'America del Norte', "fronteras": ['Chicago', 'Groenlandia'], "coords": (390, 205)},
     'Las Vegas': {"continente": 'America del Norte', "fronteras": ['California', 'Chicago', 'Florida', 'Oregon'], "coords": (163, 315)},
     'Chicago': {"continente": 'America del Norte', "fronteras": ['Florida', 'Las Vegas', 'Nueva York', 'Oregon', 'Terranova'], "coords": (323, 281)},
     'California': {"continente": 'America del Norte', "fronteras": ['Florida', 'Las Vegas', 'Mexico', 'Tonga'], "coords": (162, 376)},
@@ -51,9 +51,9 @@ PAISES_DATA = {
     'Islandia': {"continente": 'Europa', "fronteras": ['Groenlandia', 'Irlanda', 'Noruega'], "coords": (594, 193)},
     'Gran Bretana': {"continente": 'Europa', "fronteras": ['Alemania', 'Irlanda', 'Portugal'], "coords": (645, 290)},
     'Irlanda': {"continente": 'Europa', "fronteras": ['Gran Bretana', 'Islandia'], "coords": (565, 293)},
-    'Noruega': {"continente": 'Europa', "fronteras": ['Bielorrusia', 'Finlandia', 'Islandia'], "coords": (700, 199)},
+    'Noruega': {"continente": 'Europa', "fronteras": ['Finlandia', 'Islandia'], "coords": (700, 199)},
     'Finlandia': {"continente": 'Europa', "fronteras": ['Bielorrusia', 'Noruega'], "coords": (766, 199)},
-    'Bielorrusia': {"continente": 'Europa', "fronteras": ['Finlandia', 'Noruega', 'Polonia', 'Ucrania'], "coords": (826, 189)},
+    'Bielorrusia': {"continente": 'Europa', "fronteras": ['Finlandia', 'Polonia', 'Ucrania'], "coords": (826, 189)},
     'Portugal': {"continente": 'Europa', "fronteras": ['Espana', 'Gran Bretana'], "coords": (555, 461)},
     'Espana': {"continente": 'Europa', "fronteras": ['Francia', 'Portugal', 'Sahara'], "coords": (615, 471)},
     'Francia': {"continente": 'Europa', "fronteras": ['Alemania', 'Espana', 'Italia'], "coords": (670, 403)},

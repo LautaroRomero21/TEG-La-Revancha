@@ -1,13 +1,28 @@
-# TEG La Revancha — versión 9 (octubre de 2026)
+## Correcciones v11 — Dados, bloqueos y tarjetas continentales
+
+- **Cuarto dado en Combate clásico:** no es aleatorio: el reglamento (pág. 12) permite cuatro dados si el defensor tiene **al menos 3 ejércitos** y el atacante **al menos el doble de ejércitos**, sin contar misiles. Por eso una secuencia de ataques puede mostrar 3, 4 y 3 dados. El resultado de combate y el historial ahora indican **DOBLE FUERZA** o **VIENTO A FAVOR** cuando corresponde; los dos mecanismos comparten un máximo de cuatro dados. También se utiliza el mismo cálculo en ataques a guarniciones de condominios.
+- **Bloqueos:** un país con **tres o más países limítrofes**, todos rodeándolo con **dos o más ejércitos de un mismo color adversario**, no recibe incorporaciones ni premios +3 de cartas mientras esté bloqueado, pero puede atacar. No se considera un condominio como un único color bloqueador. Tampoco se bloquea un país si es el último que le queda a su dueño; hay excepción para las dos vueltas iniciales de preparación (reglamento págs. 18–19).
+- **Tarjetas continentales:** si se pierde cualquier país del continente, la tarjeta no utilizada queda **revocada en el mismo instante** (incluso si el continente se pierde durante el turno de otro jugador o al crear un condominio). No se admite un canje continental sin controlar toda la región. Si se recupera el continente y su tarjeta no se había usado, puede recuperarse; una vez canjeada, nunca puede volver a usarse por ese jugador (reglamento pág. 21).
+- **Fronteras retiradas:** Nueva York–Terranova y Noruega–Bielorrusia, ambas direcciones. El tablero mantiene 72 países y **136 conexiones bidireccionales**.
+- **Pruebas:** 15 casos nuevos en `test_correcciones_v11.py`, 113 pruebas totales. Para correrlas desde `teg_revancha`: `python -m unittest discover -s . -p "test_*.py" -q`.
+
+# TEG La Revancha — versión 10 (octubre de 2026)
 
 Juego Python + Pygame para **1 humano y entre 1 y 5 bots**; compatible con Windows (doble clic en `INICIAR_JUEGO.bat`) o terminal (`pip install -r requirements.txt` y `python main.py` desde `teg_revancha`). Requiere Python 3.10+ y pantalla preferentemente 1600 × 900; Pygame escala la interfaz a pantallas más pequeñas.
+
+## Versión 10: canjes y premios de tarjetas
+
+- **Cada jugador tiene su propia escala de canjes:** primero **6**, segundo **10**, tercero **15**, cuarto **20**, después se incrementa de cinco en cinco. Los canjes efectuados por bots no alteran el valor de tu primer canje (ni los tuyos el de ellos). Sigue el máximo de un canje por jugador y ronda.
+- **Premio de tarjeta de país:** si recibís la carta de un país que ya controlás, se agregan **+3 ejércitos inmediatamente** al país, sin consumir la carta. Si la carta es de un país rival y luego lo conquistás mientras todavía la conservás, se agregan los +3 cuando llegás a TARJETA al finalizar ese turno. El premio no se repite por consultar la carta; si el país está bloqueado o hay una zona internacional, se posterga hasta poder acreditarlo.
+- Se corrigió el caso de tarjetas **heredadas al eliminar otro color**, que ahora pueden premiar al nuevo dueño si posee su país. El popup «TARJETA OBTENIDA» avisa si el premio se acreditó o quedó pendiente.
+- **Pruebas:** `python -m unittest -q test_reglas test_pactos test_correcciones_v7 test_correcciones_v8 test_correcciones_v9 test_correcciones_v10` (**98 pruebas**).
 
 ## Corrección de la versión 9: compra de misiles en incorporación
 
 - **Solucionado el cierre `KeyError: 'Oceania'`** de `logic.py` al comprar un misil durante la segunda ronda. Sucedía cuando no se disponía de un bono del continente en el país seleccionado: se intentaba modificar una clave inexistente en `refuerzos_continente`. El mismo error podía darse en cualquiera de los siete continentes.
 - La compra descuenta exactamente **6 ejércitos** del saldo pendiente. Si hay bonificaciones del continente correspondiente, se consumen primero; de lo contrario, se utilizan solamente refuerzos libres. Nunca se descuentan bonificaciones reservadas para otros continentes.
 - Se conserva la conversión de seis ejércitos presentes en el país a un misil, siempre que quede al menos un ejército.
-- **Regresión:** `python -m unittest -q test_reglas test_pactos test_correcciones_v7 test_correcciones_v8 test_correcciones_v9` (90 pruebas). Incluye el flujo de una partida real hasta la segunda ronda, las siete regiones y compras con/sin bonificaciones.
+- **Regresión:** `python -m unittest -q test_reglas test_pactos test_correcciones_v7 test_correcciones_v8 test_correcciones_v9 test_correcciones_v10` (98 pruebas). Incluye el flujo de una partida real hasta la segunda ronda, las siete regiones y compras con/sin bonificaciones.
 
 ## Novedades de la versión 8: mapa, primera situación y pactos sin cierres
 
@@ -90,12 +105,12 @@ Cada rival recibe al comenzar uno de cinco estilos distintos (sin repetir mientr
 
 La correspondencia de las **72 cartas de país con los símbolos** se transcribió del archivo `Tarjetas países.pdf` aportado: 4 soldado, 5 granada, 21 tanque, 21 avión y 21 barco. Las cartas de soldado son comodines; **Angola, Alemania, Albania y Alaska** son las cuatro de soldado. **No se inventan supertarjetas** entre las cartas que aparecen en este PDF.
 
-Abrí **TARJETAS [T]** desde cualquier fase. Se puede recorrer la mano del humano o de cualquiera de los bots, incluso cambiar de página si hay muchas cartas. Durante la fase de incorporación, seleccioná las cartas de país y/o continente que deseás usar y pulsá **CANJEAR** cuando la combinación sea válida. No hay selección automática para el humano. Los bots sí eligen sus propias combinaciones. El canje consume las cartas elegidas y otorga **6, 10, 15, 20, 25…** ejércitos; como máximo uno por jugador y ronda.
+Abrí **TARJETAS [T]** desde cualquier fase. Se puede recorrer la mano del humano o de cualquiera de los bots, incluso cambiar de página si hay muchas cartas. Durante la fase de incorporación, seleccioná las cartas de país y/o continente que deseás usar y pulsá **CANJEAR** cuando la combinación sea válida. No hay selección automática para el humano. Los bots sí eligen sus propias combinaciones. El canje consume las cartas elegidas y otorga **6, 10, 15, 20, 25…** ejércitos **en la secuencia propia de cada jugador**, empezando siempre con 6 aunque algún bot haya canjeado antes; como máximo uno por jugador y ronda.
 
 - Son válidos tres símbolos iguales o tres distintos, considerando el soldado como comodín.
 - América del Norte, Europa y Asia permiten un canje por sí solas; América del Sur y África representan dos símbolos; América Central y Oceanía uno. Estas equivalencias se toman del *reglamento*, página 26.
 - Las tarjetas de continente **no salen del mazo**: sólo se obtienen al controlar completamente el continente y se pierden si deja de controlarse antes de usarse.
-- Las cartas de país dan **+3 ejércitos** una sola vez al ocupar el país correspondiente.
+- Las cartas de país dan **+3 ejércitos** en ese país cuando coinciden carta y propiedad: al recibir una carta de país ya propio, inmediatamente, o al finalizar el turno en que se conquista el país si se conservaba la carta. Se pospone por bloqueo o zona internacional y no se consume la tarjeta.
 - El reglamento establece que la **cantidad** de tarjetas de cada rival es pública, no sus identidades. Por pedido del usuario, esta implementación usa **manos abiertas**, donde es posible ver también las figuras y países de los bots.
 
 **Nota de fuentes:** en algunas tarjetas continentales, los símbolos dibujados en `Tarjetas países.pdf` difieren de las equivalencias descritas en la página 26 de `TEG-REVANCHA-REGLAS.pdf`. Para determinar canjes prevalece el texto del reglamento oficial, tal como se solicitó. Para las **72 tarjetas de país**, se usan exactamente los símbolos dibujados en el nuevo PDF.

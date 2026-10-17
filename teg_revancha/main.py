@@ -131,10 +131,19 @@ def manejar_boton(accion, juego, renderer):
     jugador = juego.jugador_actual()
 
     if accion == 'solicitar_tarjeta':
+        # Mostrar expresamente si la tarjeta recién robada añadió +3 al país.
+        premiadas_antes=set(jugador.tarjetas_premiadas)
         carta=juego.solicitar_tarjeta()
         if carta:
             figura=juego.figuras_cartas[carta]
-            renderer.mostrar_popup('TARJETA OBTENIDA',f'Recibiste {carta} ({figura}).\nEstá disponible en VER TARJETAS.')
+            mensaje=f'Recibiste {carta} ({figura}).\nEstá disponible en VER TARJETAS.'
+            if carta in jugador.tarjetas_premiadas and carta not in premiadas_antes:
+                mensaje+=f'\nPREMIO: +3 ejércitos incorporados en {carta}.'
+            elif juego.tablero[carta]['propietario']==jugador.idx:
+                mensaje+='\nPremio +3 pendiente por bloqueo o zona internacional.'
+            else:
+                mensaje+=f'\nSi conquistás {carta} mientras conservás la tarjeta, recibirás +3 al terminar ese turno.'
+            renderer.mostrar_popup('TARJETA OBTENIDA',mensaje)
         else:
             renderer.mostrar_popup('SIN DERECHO A TARJETA','Se requieren 1 o 2 conquistas según canjes.\nVerificá también el límite de cinco cartas y la crisis.')
 
