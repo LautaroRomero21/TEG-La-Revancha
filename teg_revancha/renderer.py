@@ -908,8 +908,8 @@ class Renderer:
         pygame.draw.circle(self.screen,color,(px,py),7)
         for posicion in ((ax,ay),(bx,by)):
             pygame.draw.circle(self.screen,color,posicion,23,3)
-        txt=('REAGRUPE +' + str(e['cantidad'])) if e['tipo']=='ejercitos' else 'REAGRUPE MISIL'
-        self._etiqueta_combate(txt,((ax+bx)//2,(ay+by)//2),min(ay,by)-48,color)
+        # La cantidad trasladada permanece disponible en el panel izquierdo.
+        # No se dibujan etiquetas sobre el mapa durante el reagrupamiento.
 
     def _etiqueta_combate(self, texto, centro, y, color):
         """Etiqueta pequeña, contrastada y contenida dentro del mapa."""

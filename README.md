@@ -2,7 +2,7 @@
 
 **Adaptación digital no oficial del juego de mesa TEG: La Revancha**, desarrollada en **Python** con **Pygame**. Permite jugar contra rivales controlados por la computadora sobre un tablero interactivo de **72 países**, con sus propias reglas de objetivos, situaciones, misiles, tarjetas y diplomacia.
 
-> **Estado:** proyecto personal en desarrollo y pruebas (versión 9). La lógica se ha probado automáticamente, pero pueden existir errores durante una partida. ¡Los reportes son bienvenidos!
+> **Estado:** proyecto personal en desarrollo y pruebas (versión 16). La lógica se ha probado automáticamente, pero pueden existir errores durante una partida. ¡Los reportes son bienvenidos!
 
 ![Tablero de TEG La Revancha](teg_revancha/mapa_ui.jpg)
 
@@ -13,19 +13,23 @@
 - **72 territorios y 7 continentes**, con fronteras y conexiones propias de La Revancha.
 - **Objetivos secretos** de conquista o eliminación de otros colores; posibilidad de excluir las misiones de destrucción antes de comenzar.
 - **Fases de juego:** preparación, incorporación de ejércitos, ataques, reagrupamientos y tarjetas. Todos los jugadores incorporan antes de comenzar los ataques de la ronda.
-- **Batallas con dados automáticos**, tomando la cantidad máxima permitida por las reglas.
+- **Batallas con dados automáticos**, tomando la cantidad máxima permitida por las reglas, incluida la posibilidad reglamentaria de 4 dados en determinadas relaciones de fuerzas.
 - **Misiles:** compra o conversión, alcance de hasta tres fronteras, defensa antimisiles y captura de misiles existentes al conquistar un país.
-- **Tarjetas de países, continentes y canjes**, con sus bonificaciones y símbolos gráficos.
+- **Tarjetas de países y continentes:** premios de +3 ejércitos al recibir o conservar una carta de un país propio (según las restricciones aplicables); hasta 5 tarjetas de país simultáneas, sin contar las continentales.
+- **Canjes individuales:** primer canje +6, segundo +10, tercero +15 y siguientes incrementos de 5; los canjes de otros jugadores no alteran el valor del propio. Las tarjetas continentales son de un solo uso por jugador y se revocan si pierde el continente antes de utilizarlas.
 - **Mazo de 50 situaciones:** Combate clásico, Nieve, Crisis, Viento a favor, Refuerzos extras, Fronteras abiertas, Fronteras cerradas y Descansos por color. Las situaciones comienzan a extraerse a partir de la **segunda ronda**.
 - **Sistema de pactos vinculantes:** acuerdos de no agresión, zonas internacionales, agresiones conjuntas y territorios en condominio, con negociación entre el humano y los bots.
-- **Interfaz visual** con mapa interactivo, menú contextual al hacer clic derecho sobre las fichas, historial, objetivos ilustrados, indicadores de misiles y resumen de refuerzos libres o específicos de cada continente.
+- **Interfaz visual de tres columnas:** panel de eventos a la izquierda, tablero despejado en el centro y acciones y estado a la derecha; menú contextual con clic derecho, historial, misiones ilustradas, misiles e incorporación diferenciada por continente.
+- **Animaciones opcionales antes de comenzar:** ataques y conquistas (con transición visual del color del defensor al ganador), incorporación de ejércitos/misiles y reagrupamientos. Avisos no modales de canjes de bots en el panel izquierdo. Las rutas, halos y proyectiles de ataque permanecen visibles sin carteles que tapen las fichas.
+- **Bloqueos territoriales:** las guarniciones rodeadas bajo las condiciones del reglamento no pueden recibir refuerzos, pero conservan la posibilidad de atacar.
+- **Pruebas de regresión:** comprobaciones sobre dados, pactos, continentes, misiles, canjes, tarjetas, fronteras e interfaz.
 
 ## 🖥️ Requisitos
 
 - Python **3.10 o posterior**.
 - [Pygame](https://www.pygame.org/) **2.5 o posterior, anterior a 3**.
 - Windows para utilizar el lanzador `.bat`; también se puede ejecutar desde una terminal en otros sistemas que admitan Python y Pygame.
-- Se recomienda una pantalla de aproximadamente **1600 × 900** píxeles; la interfaz puede escalar a resoluciones menores.
+- Se recomienda una pantalla de aproximadamente **1880 × 900** píxeles; la interfaz puede escalar a resoluciones menores.
 
 ## 🚀 Instalación y ejecución
 
@@ -54,8 +58,9 @@ En algunos equipos el comando de Python puede ser `python3` o `py`.
 | Consultar historial | **H** |
 | Ajustar velocidad de los bots | **F** |
 | Aceptar / rechazar una propuesta de un bot | **A / R** |
+| Avanzar fase cuando corresponda | **Espacio** |
 
-Los botones del panel lateral siguen disponibles como alternativa al menú contextual. Las acciones visibles dependen de la fase del turno y del país seleccionado.
+Los botones del panel derecho siguen disponibles como alternativa al menú contextual. Antes de comenzar podés desactivar las animaciones si preferís una experiencia más directa. Los avisos de canje no requieren confirmación.  Las acciones visibles dependen de la fase del turno y del país seleccionado.
 
 ## 📂 Estructura del proyecto
 
@@ -90,16 +95,16 @@ TEG_La_Revancha/
 Desde la carpeta `teg_revancha`:
 
 ```bash
-python -m unittest -v test_reglas test_pactos test_correcciones_v7 test_correcciones_v8 test_correcciones_v9
+python -m unittest discover -v -p "test_*.py"
 ```
 
-La versión 9 incluye **90 pruebas automatizadas** que comprueban, entre otras cosas, reglas de turnos, conexiones, pactos y compra/conversión de misiles. Las pruebas automatizadas no sustituyen las partidas manuales para detectar problemas visuales o de interacción.
+La versión actual incluye **126 pruebas automatizadas** que comprueban, entre otras cosas, reglas de turnos, conexiones, pactos, misiles, tarjetas, canjes, bloqueos, conquistas y comportamiento de las animaciones. Las pruebas automatizadas no sustituyen las partidas manuales para detectar problemas visuales o de interacción.
 
 ## 🛠️ Tecnologías
 
 - **Python**: reglas, estado de la partida y comportamiento de los bots.
 - **Pygame**: renderizado del mapa, interfaz gráfica y entrada de teclado/ratón.
-- **`unittest`**: pruebas automatizadas del motor.
+- **`unittest`**: pruebas automatizadas del motor y comprobaciones de regresión de la interfaz.
 
 ## 📌 Estado y mejoras futuras
 

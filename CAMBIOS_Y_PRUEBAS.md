@@ -1,3 +1,11 @@
+# Versión 16 — Ajustes visuales y documentación (octubre de 2026)
+
+- Se retiró la etiqueta flotante «REAGRUPE +N» (y «REAGRUPE MISIL») del mapa. Se conservan la línea de movimiento, la animación y la información de reagrupamiento en la columna izquierda.
+- Se actualizó el README de la raíz basándose en el archivo entregado por el usuario para documentar las mejoras realizadas desde la versión 9 hasta la 16.
+- No se modificaron las reglas de juego.
+
+---
+
 # Versión 14 — Cambio de color de una conquista después de visualizar el ataque (octubre 2026)
 
 1. El resultado de `JuegoTEG.atacar` y los ataques contra condominios incluyen datos de los propietarios y ejércitos defensores anteriores a la tirada. Esto no cambia la mecánica de combate.
