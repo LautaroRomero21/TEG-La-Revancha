@@ -1,0 +1,115 @@
+# Versión 9 — Compra de misiles sin bonos continentales (octubre 2026)
+
+1. **Cierre corregido:** `incorporar_misil()` en `logic.py` lanzaba `KeyError` al comprar un misil en un país de un continente que no figuraba como clave en `refuerzos_continente`. Se verificó que ocurría también fuera de Oceanía. Ahora solo se descuenta el fondo continental si efectivamente financia parte del costo.
+2. **Saldos correctos:** se sigue exigiendo el costo de 6 refuerzos, consumiendo primero los disponibles de ese mismo continente y luego los libres. Bonos de otros continentes quedan intactos. La conversión de 6 ejércitos existentes funciona sin cambiar el saldo de refuerzos.
+3. **Pruebas:** `test_correcciones_v9.py` agrega 9 casos: reproducción del error de Oceanía, todos los continentes, bonos de otro continente, insuficiencia de refuerzos libres, bono propio, bono agotado, conversión, compras inválidas y recorrido de una partida real desde la preparación a la ronda 2. Se vuelven a ejecutar todos los tests anteriores.
+
+**Verificación:** `python -m unittest -q test_reglas test_pactos test_correcciones_v7 test_correcciones_v8 test_correcciones_v9`; `python -m py_compile *.py`; ZIP íntegro. Pygame gráfico: pendiente de ejecutar en Windows.
+
+---
+
+# Versión 8 — Correcciones de fronteras, Chukchi, situaciones y pantalla de pactos (octubre 2026)
+
+1. Se eliminó el texto «Las imágenes corresponden a tus tarjetas de misión.» del popup de objetivos.
+2. Se corrigió `Chokchi` a **`Chukchi`** en `PAISES_DATA`, mazo y símbolos de tarjetas, así como `coords_calc.py` y `mapa_ui.jpg`; el mapa original fuente se mantiene.
+3. No se extraen ni se muestran situaciones en ronda 1; el estado es Clásico y el mazo sigue con 50 tarjetas. Desde la segunda ronda se roba una carta y se muestra el popup.
+4. Se sumaron **11 fronteras bidireccionales** y se retiraron **6**, según la lista de esta versión. Se mantienen **72 países y 138 conexiones**, todos conectados. El código de fronteras está ordenado un país por línea para permitir revisiones.
+5. `descripcion_pacto` dejó de construir anticipadamente referencias específicas de todas las variantes. El error **`KeyError: 'paises'`** al abrir Pactos después de firmar un acuerdo mundial queda corregido y probado con el mismo flujo `Renderer.mostrar_pactos`. Se verifican también continente, frontera, país, condominio y ruptura pendiente.
+
+**Validación:** tests `python -m unittest -q test_reglas test_pactos test_correcciones_v7 test_correcciones_v8`; compilar módulos; comprobar ZIP. Pygame gráfico pendiente de comprobación en Windows.
+
+---
+
+# Versión 7 — Asientos de objetivos, propuestas visibles y corrección de KeyError (octubre 2026)
+
+1. **Objetivos de destrucción:** se usa `orden_base` como referencia de asientos fija, no `orden_ronda`, que solo rota al primer jugador. Si el objetivo es un color ausente o el color propio, ahora apunta a la **derecha = jugador anterior** en el orden inicial (antes se apuntaba erróneamente al siguiente). El objetivo explícito **izquierda** se ajusta al siguiente. La misión muestra claramente la alternativa y el rival real.
+2. **Error de propuesta de bot:** al aceptar no agresión, el objeto es un pacto sin `estado` ni `tiradas`; se eliminaron los accesos incorrectos. `respuestas_pactos.py` distingue los resultados de no agresión y ofensiva conjunta, rechazo e imposibilidad. Incluye prueba que recorre `manejar_pactos` del `main.py` con Polonia–Albania y verifica que ya no lanza `KeyError: 'estado'`.
+3. **Propuesta en panel derecho:** el mapa NO se oscurece ni se cubre. Se resaltan con anillos y etiquetas los países implicados, con índice 1/2 (o 1/2/3 en agresión conjunta); el panel lateral muestra nombres completos, participantes, ejércitos y misiles para valorar la conveniencia.
+4. **Inspección libre:** durante la decisión se permite pasar el cursor y hacer clic para inspeccionar cualquier país sin mover ejércitos. A/R y botones a la derecha para responder; Esc no cierra la negociación en curso.
+
+**Validación:** 65/65 tests (`test_reglas`, `test_pactos`, `test_correcciones_v7`); 60 simulaciones adicionales (2–6 jugadores) que aceptaron 61 propuestas sin excepciones ni valores negativos; `py_compile` correcto. Falta ejecutar Pygame gráficamente en Windows: no instalado en este entorno.
+
+---
+
+# Versión 6 — Clic derecho, diplomacia, pactos y condominios (octubre 2026)
+
+1. **Menú contextual en fichas del tablero:** selección de origen y destino y acciones según fase. Con clic derecho en destino se puede atacar sin volver a la barra lateral; también refuerzos, misiles, reagrupes y ventana diplomática.
+2. **Botón ATACAR:** se retiró el texto «Máx. dados» sin modificar el cálculo automático de dados.
+3. **Motor de pactos:** módulo nuevo `pactos.py` con las cuatro formas de no agresión (dos países, continente, frontera de continentes, mundial), efectos obligatorios para ataques y misiles, registros públicos y ruptura diferida.
+4. **Zonas internacionales:** alternancia obligatoria sobre país de una ficha, disponibles a partir del tercer canje; penalización según cartas en mano, decisión del perjudicado, restricción de ocupación y reagrupamiento, suspensión del premio de tarjeta.
+5. **Agresiones conjuntas y condominios:** posibilidad de acordar turno del líder, tiradas alternadas y asalto obligatorio; guarniciones separadas y fichas bicolores en países compartidos, reglas de conquista, pausa voluntaria del asalto desde condominio, ataques internos tras ruptura, ataques de terceros y desplazamientos especiales de ambos socios.
+6. **Bots:** decisiones voluntarias de firma, rechazo u ofrecimiento de pactos, con aplicación de las mismas prohibiciones militares a todos los jugadores.
+7. **Interfaz diplomática:** tecla P, visor de pactos vigentes, propuestas y rupturas, decisiones sobre sanciones de zonas, aceptación del humano ante propuestas de bots y opciones de reagrupe extraordinario tras conquista conjunta.
+
+**Pruebas:** 55 pruebas unitarias (`test_reglas` + `test_pactos`), 55 simulaciones de 2–6 jugadores con controles de propiedad y guarniciones, sintaxis Python y ZIP verificado. No se realizó prueba gráfica real porque Pygame no está disponible en el entorno: verificar en Windows.
+
+---
+
+# Versión 5 — Símbolos rotados, desglose de refuerzos, mazo y misiles (octubre 2026)
+
+1. Rotación exacta de los cinco iconos de tarjetas de país (`iconos_cartas/*.png`) **90° en sentido horario**, sin pérdida de píxeles; escala proporcional en el visor.
+2. Incorporación desglosada visualmente. `JuegoTEG.desglose_incorporacion()` devuelve el saldo libre y los pendientes de cada continente. El panel muestra cada cuenta y actualiza sus números con las colocaciones y conversiones en misil. Las bonificaciones de continente sólo se pueden colocar allí.
+3. Mazo físico de 50 situaciones. 20 Clásico, 4 × cada uno de los seis eventos comunes, y un Descanso por color. Extracción sin reposición hasta agotar, entonces barajado del descarte. Si la carta fue Descanso de un color **que no participa o fue eliminado**, no se repone: se descarta y aplica Clásico, respetando la variante indicada por el usuario (el reglamento original propone sacar otra).
+4. Misiles visibles. Sprite nuevo de misil negro metalizado, renderizado sobre el borde izquierdo de cada token; para dos o más, marcador numérico encima. Se muestra la cantidad en el HUD del país.
+5. Misiles capturados. Se confirma y documenta que **al conquistar un país se conservan sus misiles y pasan al conquistador**. El motor ya mantenía ese estado; se añadió línea de historial explícita y una prueba que captura dos misiles y dispara uno desde el territorio conquistado.
+
+**Pruebas:** 41/41 `unittest` correctos; 50 simulaciones adicionales de 2 a 6 jugadores y hasta 250 pasos cada una, sin ejércitos/misiles negativos; comparación pixel a pixel de iconos rotados, sintaxis Python OK. Verificación gráfica real pendiente por imposibilidad de instalar Pygame en este entorno.
+
+---
+
+# Versión 4 — Situaciones, objetivos ilustrados, turnos conjuntos e IA (octubre 2026)
+
+1. **Popup de situación por ronda.** Se muestra al empezar cada ronda de hostilidades, antes del primer paso humano o del bot; para continuar se requiere ACEPTAR. Esc no lo descarta. Incluye una explicación del efecto y los afectados por Crisis.
+2. **Objetivos de destrucción opcionales.** Checkbox en menú, habilitado por defecto; en 4-6 jugadores se excluyen los objetivos de destrucción al desmarcarlo. Para 2 y 3 sigue la restricción anterior (sin eliminación).
+3. **Corrección estructural de los turnos desde la ronda 2.** Etapa de INCORPORACIÓN para todos los jugadores activos, en el orden rotativo; solo después se habilita ATACAR para el primero, y continúan ATACAR → REAGRUPAR → TARJETA para cada uno. Preparación y ronda 1 se conservan. Se introdujeron `etapa_ronda` e `incorporaciones_completadas`.
+4. **Imágenes reales de objetivos.** 17 tarjetas recortadas del PDF original y 2 creadas para misiones presentes en código pero sin imagen equivalente. Se giran 90° en sentido horario las de páginas 1-2; las de página 3 están verticalmente legibles sin girar. El PDF tiene un duplicado de la misión Europa+4 Asia+4 Sudamérica y no contiene la imagen de Oceanía+África+4 América Central+4 Asia; tampoco contiene «destruir Blanco» (contiene «destruir Magenta»). Las cartas «Descanso» no se utilizan como objetivos. Imágenes guardadas en `teg_revancha/objetivos_imagenes/` con índices `00` a `18`. Ver carta a tamaño completo con O.
+5. **Bots más variados.** Cinco estilos asignados sin repetir (Agresivo / Defensivo / Objetivo / Oportunista / Equilibrado), ponderación de países conforme a la misión, amenazas vecinas, debilidades, equilibrio ofensivo/defensivo, penalización por refuerzos repetidos y reagrupes de apoyo. Todos los movimientos pasan por las funciones de reglas.
+
+**Validación:** 35 pruebas `unittest`, compilación sintáctica, 25 simulaciones adicionales hasta ronda 5 o victoria (2-6 jugadores), verificando que no se crean ejércitos negativos ni se pierden territorios sin dueño. Pygame no está instalado en el entorno y no se pudo descargar, por lo que la verificación gráfica real queda pendiente de ejecutar en Windows. El ZIP sigue incluyendo archivos originales y el reglamento.
+
+---
+
+# Actualización — Conexiones, interfaz y refuerzos (octubre de 2026)
+
+## Lo solicitado en esta revisión
+
+1. **Tablero:** se agregaron las 14 fronteras indicadas y se quitaron las 23 sobrantes, siempre en ambos sentidos. Los nombres de `data.py` se conservan sin tildes por compatibilidad. Hay 133 conexiones únicas entre 72 países. El grafo es conexo y ningún país queda aislado.
+2. **Refuerzos:** ahora se aplica `max(4, cantidad_paises // 2)` durante las rondas regulares, incluyendo 6 y 7 países, donde antes se otorgaban erróneamente tres ejércitos. Se mantienen los bonos por continente, situación, canjes y la primera ronda especial.
+3. **Interfaz:** panel oscuro rediseñado con fuente nítida, contraste, tarjetas informativas, pistas de acciones, marcadores de fase, fichas visibles, nuevas ventanas de objetivos e historial y portada visual. El mapa de alta resolución se mantiene y se añadió la versión optimizada `mapa_ui.jpg` para acelerar el inicio.
+4. **Orden visual rotativo:** se usa el orden real de la ronda (`orden_visual_jugadores` basado en `orden_ronda`), no la lista fija de jugadores. Los eliminados quedan al final.
+5. **Mapas:** se dejó de dibujar la antigua lista rígida de líneas marítimas, porque incluía conexiones ahora descartadas; sólo se resalta un par seleccionado que el motor confirma como adyacente.
+
+## Pruebas de esta entrega
+
+- 31 pruebas de `python -m unittest -v test_reglas`: **OK**, incluyendo 37 modificaciones de fronteras, mínimo 4, y rotación visual.
+- Prueba del grafo: 72 países, 133 fronteras, 1 componente conexa, 0 países aislados.
+- 100 simulaciones parciales de juego (20 semillas por 2 a 6 jugadores, 11.480 pasos): **sin excepciones ni ejércitos negativos**.
+- `python -m py_compile *.py`: **OK**.
+- **Pendiente de verificación visual en Windows:** no fue posible instalar ni ejecutar Pygame en el entorno de validación por falta de acceso al paquete. Los cambios de interfaz se revisaron por código, no mediante ejecución gráfica real.
+
+---
+
+# Historial de cambios de la versión anterior (v2) — Octubre de 2026
+
+## Nuevos respecto de la versión ZIP anterior
+
+1. Se elimina el ataque voluntario con 1 dado. El motor siempre calcula el máximo permitido; el panel tiene un único botón de ataque.
+2. Se sortea el orden inicial de jugadores. Cada nueva ronda rota el orden: primer jugador al último puesto. La preparación y la primera ronda mantienen el orden sorteado.
+3. El menú permite elegir los seis colores oficiales; se ajustan nombres, fichas, situaciones de descanso y misiones de eliminación al color asignado.
+4. Se divide la IA en pasos (`paso_bot`): cada decisión se anima en el loop de Pygame sin bloquear eventos. Velocidades PAUSA/1x/2x/4x/8x, con tecla F y control visual. Se resaltan país origen y destino y se muestran dados en ataques.
+5. Los 72 símbolos de tarjetas ya **no son aleatorios**. `FIGURAS_POR_PAIS` en `data.py` contiene la asignación real de las cartas del PDF: cuatro soldados, cinco granadas y veintiuna cartas de cada uno de los otros tres símbolos.
+6. Se incorporó una fase TARJETA después de reagrupar: el jugador solicita explícitamente una sola carta, sujeto al mínimo de 1 o 2 conquistas y el límite de cinco cartas. La carta no se roba sin pulsar el botón.
+7. Visor completo de cartas propias y rivales con pestañas, paginación, figuras recortadas del PDF y selección manual de país/continente para canjes.
+8. El motor ofrece `canje_valido` para validar combinaciones elegidas. Los bots conservan elección automática de canje.
+9. Se añadieron pruebas de las correspondencias del PDF, orden y rotación, colores, dados máximos, solicitud explícita, límite de cartas y canjes seleccionados.
+
+## Resultados
+
+- 28 pruebas automáticas del motor: **OK**.
+- 100 simulaciones adicionales con 2, 3, 4, 5 y 6 jugadores (20 semillas por configuración): **sin excepciones ni ejércitos negativos**.
+- Compilación sintáctica del código: **OK**.
+- Interfaz gráfica: **no ejecutada aquí**, porque Pygame no está instalado y no se pudo descargar debido a restricciones de red.
+
+## Limitaciones
+
+Pactos especiales, condominios, reparto colectivo de refuerzos extras y guardado de partidas todavía no están implementados. Ver README para detalles y aclaración sobre discrepancias en figuras de las tarjetas continentales.
