@@ -362,6 +362,11 @@ class Renderer:
             return texto
         return 'Seleccioná un territorio del mapa para jugar'
 
+    @staticmethod
+    def _dados_visibles_hud(resultado, clave):
+        """Devuelve todos los dados válidos del combate (hasta cuatro)."""
+        return list(resultado.get(clave,[]))[:4]
+
     def _dibujar_panel_izquierdo(self, juego):
         x,w=0,self.LEFT_W
         pygame.draw.rect(self.screen,C_PANEL,(x,0,w,self.WIN_H))
@@ -416,11 +421,11 @@ class Renderer:
             r=self.resultado_dados
             self._tarjeta((12,y,w-24,154),(22,42,63),(62,92,112),12)
             self._texto('DADOS DEL COMBATE',24,y+10,self.font_md,C_ACCENT,max_ancho=w-48)
-            self._texto('ATACA',24,y+37,self.font_micro,C_DANGER)
-            self._texto('DEFIENDE',24,y+73,self.font_micro,C_ACCENT2)
+            self._texto(f'ATACA ({len(r.get("dados_atk",[]))})',24,y+37,self.font_micro,C_DANGER)
+            self._texto(f'DEFIENDE ({len(r.get("dados_def",[]))})',24,y+73,self.font_micro,C_ACCENT2)
             for fila,(clave,tono) in enumerate((('dados_atk',C_DANGER),('dados_def',C_ACCENT2))):
-                for i,dado in enumerate(r.get(clave,[])[:3]):
-                    self._dibujar_dado(96+i*41,y+31+fila*36,dado,tono,tamano=30)
+                for i,dado in enumerate(self._dados_visibles_hud(r,clave)):
+                    self._dibujar_dado(91+i*39,y+31+fila*36,dado,tono,tamano=30)
             bajas=f'-{r.get("bajas_atk",0)} atk / -{r.get("bajas_def",0)} def'
             self._texto(bajas,24,y+111,self.font_sm,C_TEXT,max_ancho=w-48)
             extra=r.get('razon_4_dados') or ('Territorio conquistado' if r.get('conquisto') else '')
@@ -1294,9 +1299,16 @@ class Renderer:
                 items.append(('Pactos y diplomacia','ver_pactos'))
         elif fase==FASE_REAGRUPAR:
             if es_mio:items.append(('Elegir como origen','ctx_origen'))
-            if self.pais_seleccionado and self.pais_seleccionado!=pais and es_mio:
+            if (self.pais_seleccionado and self.pais_seleccionado!=pais
+                    and es_mio and juego.es_propietario(self.pais_seleccionado,jugador)
+                    and juego.son_adyacentes(self.pais_seleccionado,pais)):
                 self.pais_objetivo=pais
-                items.extend([('Mover ejércitos','reagrupar'),('Mover misil','reagrupar_misil')])
+                # Atajos in situ. La lógica valida los límites de guarnición.
+                items.extend([('Mover 1 ejército','ctx_reagrupar_1'),
+                              ('Mover 5 ejércitos','ctx_reagrupar_5'),
+                              ('Mover máximo posible','ctx_reagrupar_max'),
+                              ('Elegir cantidad…','reagrupar'),
+                              ('Mover misil','reagrupar_misil')])
             items.append(('Pactos y diplomacia','ver_pactos'))
         else:
             items.append(('Pactos y diplomacia','ver_pactos'))
@@ -1417,7 +1429,7 @@ class Renderer:
         titulo = "REAGRUPAR EJÉRCITOS"
         mensaje = (f"Mover ejércitos de {desde} a {hacia}.\n"
                    f"En {desde} hay {maximo_disponible + 1} ejércitos (debes dejar al menos 1).\n"
-                   f"Selecciona la cantidad a mover:")
+                   f"Selecciona la cantidad a mover: 1")
 
         # Crear botones de control
         botones = [
