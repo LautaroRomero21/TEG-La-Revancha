@@ -62,6 +62,14 @@ En algunos equipos el comando de Python puede ser `python3` o `py`.
 
 Los botones del panel derecho siguen disponibles como alternativa al menú contextual. Antes de comenzar podés desactivar las animaciones si preferís una experiencia más directa. Los avisos de canje no requieren confirmación.  Las acciones visibles dependen de la fase del turno y del país seleccionado.
 
+### Países en condominio
+
+Después de un ataque conjunto, ambos aliados ocupan el país con **guarniciones separadas**. Sus ejércitos pueden atacar a terceros desde ese país (pero no a países propios del socio), y cada participante puede reagrupar sus propias tropas hacia el condominio o desde él hacia un país propio limítrofe, respetando las restricciones del reagrupamiento.
+
+La **tregua interna** no termina al anunciar su ruptura: el jugador que la rompe debe respetarla hasta que **finalice el próximo turno del otro socio**. Después, para atacar la guarnición del antiguo aliado, hacé **clic derecho sobre el condominio → Atacar socio dentro**. Según el reglamento, los copropietarios originales **no pueden atacarse dentro del condominio desde otro país exterior**, incluso tras la ruptura.
+
+Durante un ataque normal se conservan el origen y el destino para repetir la tirada rápidamente. Hacé clic en un **espacio vacío del mapa** para limpiar la selección.
+
 ## 📂 Estructura del proyecto
 
 ```text
