@@ -666,16 +666,21 @@ class JuegoTEG(DiplomaciaMixin):
     def reagrupar(self, desde, hacia, cantidad):
         if hacia in self.condominios:
             return self.reagrupar_en_condominio(desde,hacia,cantidad)
+        actor=self.turno_idx
         if (self.fase!=FASE_REAGRUPAR or self.situacion==f'Descanso {self.jugador_actual().color_nombre}'
             or desde not in self.tablero or hacia not in self.tablero
             or not self.son_adyacentes(desde,hacia) or cantidad<1
-            or self.tablero[desde]['propietario']!=self.turno_idx or self.tablero[hacia]['propietario']!=self.turno_idx
-            or self.tablero[desde]['ejercitos']-1-self.reagrupados_recibidos.get(desde,0)<cantidad):
+            or not self.es_propietario(desde,actor) or not self.es_propietario(hacia,actor)
+            or self.ejercitos_de(desde,actor)-1-self.reagrupados_recibidos.get(
+                (desde,actor) if desde in self.condominios else desde,0)<cantidad):
             return False
         if self.zona_para(hacia):return False  # Mantener exactamente una ficha.
-        self.tablero[desde]['ejercitos']-=cantidad
-        self.tablero[hacia]['ejercitos']+=cantidad
-        self.reagrupados_recibidos[hacia]=self.reagrupados_recibidos.get(hacia,0)+cantidad
+        # Mover exclusivamente las tropas del jugador: si el origen es compartido,
+        # las fichas del socio no pueden utilizarse ni verse afectadas.
+        self._ajustar_guarnicion(desde,actor,-cantidad)
+        self._ajustar_guarnicion(hacia,actor,cantidad)
+        llave_destino=(hacia,actor) if hacia in self.condominios else hacia
+        self.reagrupados_recibidos[llave_destino]=self.reagrupados_recibidos.get(llave_destino,0)+cantidad
         self.log(f'REAGRUPE {desde}->{hacia}: {cantidad} ejércitos')
         return True
 
@@ -997,8 +1002,21 @@ class JuegoTEG(DiplomaciaMixin):
         for p in self.paises_de(j.idx):
             a=self.ejercitos_de(p,j.idx)
             if a<=1:continue
+            if p in self.condominios:
+                # Tras terminar la tregua, el bot también puede combatir a su
+                # copropietario original *dentro* del país compartido.
+                rivales=[i for i in self.condominios[p] if i!=j.idx]
+                for rival in rivales:
+                    b=self.ejercitos_de(p,rival)
+                    if (b>=1 and a-1>=b*umbrales[perfil] and
+                        not self._prohibido_por_pacto(j.idx,rival,p,p) and
+                        not any(pacto['activo'] and pacto['tipo']=='condominio' and
+                            pacto['pais']==p and set(pacto['jugadores'])=={j.idx,rival}
+                            for pacto in self.pactos)):
+                        lista.append((self._preferencia(p,j)+min((a-1)/b,7)*3, p,p))
             for q in self.paises_limites_enemigos(p):
                 if not self._ataque_permitido(p,q) or self.es_propietario(q,j.idx):continue
+                if p in self.condominios and self.tablero[q]['propietario'] in self.condominios[p]:continue
                 b=self.tablero[q]['ejercitos']
                 if a-1 < b*umbrales[perfil]:continue
                 op=self._preferencia(q,j)
