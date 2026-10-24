@@ -244,7 +244,7 @@ class Renderer:
         jugador=juego.jugador_actual()
         descansa=juego.situacion==f'Descanso {jugador.color_nombre}'
         elegido=self.pais_seleccionado
-        propio=elegido in juego.tablero and juego.tablero[elegido]['propietario']==jugador.idx
+        propio=elegido in juego.tablero and juego.es_propietario(elegido,jugador.idx)
         destino=self.pais_objetivo is not None
         if fase==FASE_INCORPORAR:
             canje=(juego.etapa=='hostilidades' and jugador.canje_ultima_ronda!=juego.ronda
@@ -264,7 +264,9 @@ class Renderer:
         elif fase==FASE_REAGRUPAR:
             acciones=[
                 ('MOVER EJÉRCITOS','reagrupar',propio and destino and not descansa,'Entre dos territorios propios limítrofes.'),
-                ('MOVER MISIL','reagrupar_misil',propio and destino and not descansa,'Entre dos territorios propios limítrofes.'),
+                ('MOVER MISIL','reagrupar_misil',propio and destino and not descansa
+                    and elegido not in juego.condominios and self.pais_objetivo not in juego.condominios,
+                    'Solo entre países de propiedad exclusiva.'),
                 ('LIMPIAR SELECCIÓN','cancelar',True,''),
                 ('IR A TARJETAS','pasar',True,'Pasás a solicitar tarjeta si conquistaste.'),
             ]
@@ -1290,6 +1292,9 @@ class Renderer:
         elif fase==FASE_ATACAR:
             if es_mio:
                 items.append(('Elegir como origen','ctx_origen'))
+                if pais in juego.condominios:
+                    # El país se usa como origen Y destino para la batalla interna.
+                    items.append(('Atacar socio dentro','ctx_atacar_interno'))
             if self.pais_seleccionado and self.pais_seleccionado!=pais:
                 self.pais_objetivo=pais
                 if not es_mio or pais in juego.condominios:
@@ -1307,8 +1312,9 @@ class Renderer:
                 items.extend([('Mover 1 ejército','ctx_reagrupar_1'),
                               ('Mover 5 ejércitos','ctx_reagrupar_5'),
                               ('Mover máximo posible','ctx_reagrupar_max'),
-                              ('Elegir cantidad…','reagrupar'),
-                              ('Mover misil','reagrupar_misil')])
+                              ('Elegir cantidad…','reagrupar')])
+                if pais not in juego.condominios and self.pais_seleccionado not in juego.condominios:
+                    items.append(('Mover misil','reagrupar_misil'))
             items.append(('Pactos y diplomacia','ver_pactos'))
         else:
             items.append(('Pactos y diplomacia','ver_pactos'))
