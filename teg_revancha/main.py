@@ -89,6 +89,32 @@ def manejar_clic_mapa(pos, juego, renderer):
         renderer.construir_botones(juego)
 
 
+def maximo_reagrupe(juego, desde, hacia):
+    """Máximo movilizable desde origen, excluyendo tropas recibidas en la ronda."""
+    if (juego.fase!=FASE_REAGRUPAR or desde not in juego.tablero or hacia not in juego.tablero
+            or desde==hacia or not juego.es_propietario(desde,juego.turno_idx)
+            or not juego.es_propietario(hacia,juego.turno_idx)
+            or not juego.son_adyacentes(desde,hacia)):
+        return 0
+    llave=(desde,juego.turno_idx) if desde in juego.condominios else desde
+    recibidos=juego.reagrupados_recibidos.get(llave,0)
+    return max(0,juego.ejercitos_de(desde,juego.turno_idx)-1-recibidos)
+
+
+def mover_reagrupe_rapido(juego,renderer,cantidad):
+    """Ejecuta un reagrupamiento corto sin popup y mantiene la selección."""
+    desde,hacia=renderer.pais_seleccionado,renderer.pais_objetivo
+    maximo=maximo_reagrupe(juego,desde,hacia)
+    if not maximo:
+        return False
+    mover=maximo if cantidad=='max' else int(cantidad)
+    if mover<1 or mover>maximo or not juego.reagrupar(desde,hacia,mover):
+        return False
+    renderer.registrar_reagrupe(desde,hacia,mover,juego,tipo='ejercitos')
+    renderer.construir_botones(juego)
+    return True
+
+
 def manejar_boton(accion, juego, renderer):
     """Ejecuta la accion correspondiente al boton presionado."""
     if accion == 'velocidad_bot':
@@ -120,6 +146,12 @@ def manejar_boton(accion, juego, renderer):
         else:
             renderer.registrar_incorporacion(pais,1,juego,tipo='misil')
         renderer.construir_botones(juego)
+        return
+    if accion.startswith('ctx_reagrupar_'):
+        cantidad=accion.rsplit('_',1)[1]
+        if not mover_reagrupe_rapido(juego,renderer,cantidad):
+            renderer.mostrar_popup('REAGRUPAR',
+                'No se puede mover esa cantidad. Revisá los ejércitos disponibles, las fronteras y los bloqueos.')
         return
     if accion == 'ctx_cerrar':return
     if accion == 'ver_tarjetas':
@@ -220,7 +252,7 @@ def manejar_boton(accion, juego, renderer):
                juego.es_propietario(hacia,juego.turno_idx) and \
                juego.son_adyacentes(desde, hacia):
                 # Mostrar popup para preguntar cuántos ejércitos mover
-                max_mover = juego.ejercitos_de(desde,juego.turno_idx) - 1 - (juego.reagrupados_recibidos.get((desde,juego.turno_idx),0) if desde in juego.condominios else juego.reagrupados_recibidos.get(desde,0))
+                max_mover = maximo_reagrupe(juego,desde,hacia)
                 if max_mover > 0:
                     renderer.mostrar_popup_reagrupar(desde, hacia, max_mover)
                 else:
@@ -483,9 +515,8 @@ def manejar_accion_popup(accion, juego, renderer):
             cantidad = estado["cantidad_actual"]
             if juego.reagrupar(desde, hacia, cantidad):
                 renderer.registrar_reagrupe(desde,hacia,cantidad,juego,tipo='ejercitos')
+            # Conservar origen y destino: se puede reagrupar de nuevo con clic derecho.
             renderer.popup = None
-            renderer.pais_seleccionado = None
-            renderer.pais_objetivo     = None
             if hasattr(renderer, '_reagrupar_state'):
                 delattr(renderer, '_reagrupar_state')
             renderer.construir_botones(juego)
@@ -495,8 +526,6 @@ def manejar_accion_popup(accion, juego, renderer):
         if juego.reagrupar(renderer.pais_seleccionado, renderer.pais_objetivo, cant):
             renderer.registrar_reagrupe(renderer.pais_seleccionado,renderer.pais_objetivo,cant,juego,tipo='ejercitos')
         renderer.popup = None
-        renderer.pais_seleccionado = None
-        renderer.pais_objetivo     = None
         renderer.construir_botones(juego)
 
 
