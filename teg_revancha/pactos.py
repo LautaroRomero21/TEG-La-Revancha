@@ -396,13 +396,16 @@ class DiplomaciaMixin:
             actor not in self.condominios[destino] or cantidad<1 or
             not self.son_adyacentes(desde,destino) or
             not self.es_propietario(desde,actor) or
-            self.ejercitos_de(desde,actor)-1-self.reagrupados_recibidos.get((desde,actor),0)<cantidad):return False
+            self.ejercitos_de(desde,actor)-1-self.reagrupados_recibidos.get(
+                (desde,actor) if desde in self.condominios else desde,0)<cantidad):return False
         if actor!=self.turno_idx:
             # Única excepción: el aliado que participó en la conquista de ese
             # condominio, después de reagrupar el líder y antes del próximo turno.
             if not any(a['estado']=='conquistada' and a['destino']==destino and
                 actor in a['jugadores'] and self.turno_idx==a['lider'] and self.ronda==a['ronda']
                 for a in self.agresiones_pendientes):return False
+        if actor==self.turno_idx and self.situacion==f'Descanso {self.jugadores[actor].color_nombre}':
+            return False
         self._ajustar_guarnicion(desde,actor,-cantidad)
         self._ajustar_guarnicion(destino,actor,cantidad)
         self.reagrupados_recibidos[(destino,actor)]=self.reagrupados_recibidos.get((destino,actor),0)+cantidad
