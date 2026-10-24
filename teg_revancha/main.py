@@ -60,6 +60,10 @@ def manejar_clic_mapa(pos, juego, renderer):
 
     pais_clic = renderer.pais_en_pos(pos, juego.tablero)
     if not pais_clic:
+        # Un clic sobre el mapa vacío limpia la selección, sin cambiar de fase.
+        renderer.pais_seleccionado = None
+        renderer.pais_objetivo = None
+        renderer.construir_botones(juego)
         return
 
     fase = juego.fase
@@ -123,6 +127,13 @@ def manejar_boton(accion, juego, renderer):
         return
     if accion == 'ver_pactos':
         renderer.mostrar_pactos(juego)
+        return
+    if accion == 'ctx_atacar_interno':
+        pais=renderer._contexto_pais
+        if pais in juego.condominios and juego.es_propietario(pais,juego.turno_idx):
+            renderer.pais_seleccionado=pais
+            renderer.pais_objetivo=pais
+            manejar_boton('atacar_4',juego,renderer)
         return
     if accion == 'ctx_origen':
         renderer.pais_seleccionado=renderer._contexto_pais
@@ -223,7 +234,24 @@ def manejar_boton(accion, juego, renderer):
                     renderer.mostrar_popup('ELEGIR GUARNICIÓN A ATACAR',
                         f'En {renderer.pais_objetivo} hay dos ocupantes. Elegí a cuál vas a atacar en esta tirada.',botones)
                     return
-            res = juego.atacar(renderer.pais_seleccionado, renderer.pais_objetivo)
+            desde,hacia=renderer.pais_seleccionado,renderer.pais_objetivo
+            if hacia in juego.condominios and juego.es_propietario(hacia,juego.turno_idx):
+                pacto=next((p for p in juego.pactos if p['tipo']=='condominio' and p['pais']==hacia
+                    and juego.turno_idx in p['jugadores'] and
+                    set(p['jugadores'])==set(juego.condominios[hacia])),None)
+                if desde!=hacia and pacto is not None:
+                    renderer.mostrar_popup('CONDOMINIO - ATAQUE INTERNO',
+                        'Los copropietarios originales solo pueden atacarse dentro '
+                        'del país compartido, nunca desde otro país exterior. '
+                        'Usá clic derecho en el condominio y elegí ATAQUE INTERNO.')
+                    return
+                if desde==hacia and pacto is not None and pacto['activo']:
+                    renderer.mostrar_popup('TREGUA INTERNA VIGENTE',
+                        'El pacto protege a ambos ejércitos hasta que termine el '
+                        'próximo turno del otro socio. Aunque hayas anunciado la '
+                        'ruptura, todavía no podés atacar su guarnición.')
+                    return
+            res = juego.atacar(desde, hacia)
             if res["ok"]:
                 renderer.registrar_combate(renderer.pais_seleccionado,
                     renderer.pais_objetivo,res,juego)
@@ -238,8 +266,8 @@ def manejar_boton(accion, juego, renderer):
             else:
                 renderer.mostrar_popup('ATAQUE INVÁLIDO',
                     'Revisá frontera, ejércitos, fase y tarjeta de situación.')
-            renderer.pais_seleccionado = None
-            renderer.pais_objetivo     = None
+            # Conservar ambos territorios para encadenar nuevos ataques desde
+            # el mismo origen. Un clic fuera de las fichas limpia la selección.
         else:
             renderer.mostrar_popup("ATACAR",
                                     "Selecciona origen (tuyo) y destino (enemigo) en el mapa.")
