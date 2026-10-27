@@ -2,7 +2,7 @@
 
 **Adaptación digital no oficial del juego de mesa TEG: La Revancha**, desarrollada en **Python** con **Pygame**. Permite jugar contra rivales controlados por la computadora sobre un tablero interactivo de **72 países**, con sus propias reglas de objetivos, situaciones, misiles, tarjetas y diplomacia.
 
-> **Estado:** proyecto personal en desarrollo y pruebas (versión 16). La lógica se ha probado automáticamente, pero pueden existir errores durante una partida. ¡Los reportes son bienvenidos!
+> **Estado:** proyecto personal en desarrollo y pruebas. La lógica cuenta con pruebas automatizadas, pero pueden existir errores durante una partida. ¡Los reportes son bienvenidos!
 
 ![Tablero de TEG La Revancha](teg_revancha/mapa_ui.jpg)
 
@@ -12,6 +12,7 @@
 - **Bots con distintos estilos:** agresivo, defensivo, oportunista, equilibrado y enfocado en la misión.
 - **72 territorios y 7 continentes**, con fronteras y conexiones propias de La Revancha.
 - **Objetivos secretos** de conquista o eliminación de otros colores; posibilidad de excluir las misiones de destrucción antes de comenzar.
+- **Pantalla final de victoria:** muestra quién ganó y qué condición cumplió: objetivo general de 45 países, misión secreta de conquista/eliminación o ambas misiones en partidas de dos jugadores; también se revelan las misiones de los bots ganadores.
 - **Fases de juego:** preparación, incorporación de ejércitos, ataques, reagrupamientos y tarjetas. Todos los jugadores incorporan antes de comenzar los ataques de la ronda.
 - **Batallas con dados automáticos**, tomando la cantidad máxima permitida por las reglas, incluida la posibilidad reglamentaria de 4 dados en determinadas relaciones de fuerzas.
 - **Misiles:** compra o conversión, alcance de hasta tres fronteras, defensa antimisiles y captura de misiles existentes al conquistar un país.
