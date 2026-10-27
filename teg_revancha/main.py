@@ -558,28 +558,66 @@ def manejar_accion_popup(accion, juego, renderer):
 
 
 def pantalla_victoria(renderer, juego, ganador_nombre):
-    """Muestra pantalla de victoria hasta que el jugador presione tecla."""
-    C_ACCENT = (255, 180, 0)
-    C_TEXT   = (230, 230, 240)
-    C_BG     = (15, 20, 35)
+    """Presenta el ganador y las condiciones EXACTAS que hicieron ganar la partida.
 
-    running = True
+    No depende de cuál sea el jugador humano: también revela la misión del bot
+    ganador, y en partidas de dos muestra las dos misiones cumplidas.
+    """
+    dorado=(247,192,92)
+    blanco=(242,247,252)
+    celeste=(104,213,230)
+    tenue=(163,182,202)
+    detalle=getattr(juego,'detalle_victoria',None) or {}
+    objetivos=detalle.get('objetivos',[])
+    es_general=detalle.get('tipo')=='general'
+    etiqueta=('OBJETIVO GENERAL CUMPLIDO' if es_general else
+              'OBJETIVOS PERSONALES CUMPLIDOS' if len(objetivos)>1 else
+              'OBJETIVO PERSONAL CUMPLIDO')
+    ganador=juego.jugadores[juego.ganador_idx]
+    w,h=renderer.WIN_W,renderer.WIN_H
+    ancho=940
+    x=(w-ancho)//2
+    # Preparar previamente los renglones, por si hay objetivos extensos.
+    lineas=[]
+    for i,descripcion in enumerate(objetivos):
+        encabezado=(f'MISIÓN {i+1}' if len(objetivos)>1 else 'MISIÓN COMPLETADA')
+        lineas.append((encabezado,renderer._ajustar_lineas(descripcion,renderer.font_lg,ancho-106)))
+    altura_objetivos=sum(36+len(filas)*31+17 for _,filas in lineas)
+    alto=max(490,min(h-75,304+altura_objetivos))
+    y=(h-alto)//2
+
+    running=True
     while running:
-        renderer.screen.fill(C_BG)
-        w = renderer.WIN_W
-        tit = renderer.font_title.render("VICTORIA!", True, C_ACCENT)
-        renderer.screen.blit(tit, ((w - tit.get_width()) // 2, 200))
-        msg = renderer.font_xl.render(f"{ganador_nombre} ha conquistado el planeta!", True, C_TEXT)
-        renderer.screen.blit(msg, ((w - msg.get_width()) // 2, 280))
-        instr = renderer.font_md.render("Presiona cualquier tecla para salir.", True, (120, 130, 150))
-        renderer.screen.blit(instr, ((w - instr.get_width()) // 2, 380))
+        renderer.screen.fill((8,16,27))
+        renderer._tarjeta((x,y,ancho,alto),(18,33,52),(82,113,133),18)
+        pygame.draw.rect(renderer.screen,dorado,(x,y,ancho,7),border_radius=4)
+        renderer._texto('¡VICTORIA!',x+45,y+34,renderer.font_hero,dorado)
+        pygame.draw.circle(renderer.screen,ganador.color,(x+62,y+128),17)
+        pygame.draw.circle(renderer.screen,blanco,(x+62,y+128),17,2)
+        renderer._texto(f'GANÓ {ganador_nombre}',x+92,y+101,
+                        renderer.font_title,blanco,max_ancho=ancho-130)
+        renderer._texto(etiqueta,x+46,y+182,renderer.font_lg,celeste)
+        pygame.draw.line(renderer.screen,(66,93,116),(x+45,y+221),(x+ancho-45,y+221),2)
+        objetivo_y=y+243
+        for encabezado,filas in lineas:
+            renderer._texto(encabezado,x+49,objetivo_y,
+                            renderer.font_sm,dorado)
+            objetivo_y+=31
+            for linea in filas:
+                renderer._texto(linea,x+56,objetivo_y,renderer.font_lg,
+                                blanco,max_ancho=ancho-110)
+                objetivo_y+=31
+            objetivo_y+=17
+        if es_general:
+            renderer._texto(f'Territorios conquistados: {detalle.get("paises",45)} / 45',
+                            x+46,objetivo_y+3,renderer.font_md,celeste)
+        renderer._texto('Presioná cualquier tecla o hacé clic para salir.',
+                        x+46,y+alto-47,renderer.font_md,tenue)
         pygame.display.flip()
         renderer.clock.tick(30)
-
         for event in pygame.event.get():
-            if event.type in (pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
-                running = False
-
+            if event.type in (pygame.QUIT,pygame.KEYDOWN,pygame.MOUSEBUTTONDOWN):
+                running=False
 
 def main():
     pygame.init()
