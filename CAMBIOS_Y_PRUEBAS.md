@@ -1,3 +1,13 @@
+# Mejora — Pantalla de victoria con objetivo alcanzado (octubre de 2026)
+
+- Al concluir una partida, la pantalla de victoria identifica al jugador ganador (humano o bot), indica si alcanzó el objetivo general o sus misiones personales y muestra literalmente las descripciones de las tarjetas de misión correspondientes.
+- Si gana por objetivo general, se detalla que ocupó **al menos 45 países** y la cantidad de territorios exclusivos controlados.
+- Si gana por misión personal, se muestra el objetivo exacto; en partidas de dos jugadores se muestran las **dos misiones** exigidas por el motor.
+- El motor guarda la causa de la victoria en `detalle_victoria`, que también utiliza la pantalla final; conserva la condición ya existente de prioridad del objetivo de 45 países.
+- Se agregaron **8 pruebas nuevas** en `teg_revancha/test_correcciones_victoria.py`, incluyendo misiones de ocupación y eliminación, bots ganadores, visualización del mensaje y ausencia de triunfos prematuros. Se ejecutaron en el código base local (134 tests incluyendo estas 8) y se publicaron los cambios en GitHub. La apariencia gráfica final en Windows queda por validar.
+
+---
+
 # Versión 16 — Ajustes visuales y documentación (octubre de 2026)
 
 - Se retiró la etiqueta flotante «REAGRUPE +N» (y «REAGRUPE MISIL») del mapa. Se conservan la línea de movimiento, la animación y la información de reagrupamiento en la columna izquierda.
