@@ -143,6 +143,7 @@ class JuegoTEG(DiplomaciaMixin):
         self.historial = []
         self.canje_numero = 0
         self.ganador_idx = None
+        self.detalle_victoria = None  # Causa precisa: objetivo general o misión(es) secreta(s).
         self._ultimo_atacante = None
         self.propuesta_pendiente = None
         self.reagrupe_aliado_pendiente = None
@@ -646,8 +647,11 @@ class JuegoTEG(DiplomaciaMixin):
 
     def _verificar_victoria(self, jugador):
         if self.fase=='VICTORIA' or self.etapa=='preparacion':return False
-        if len(self.paises_exclusivos(jugador.idx))>=45:
-            motivo='45 países (objetivo común)'
+        paises=len(self.paises_exclusivos(jugador.idx))
+        if paises>=45:
+            # Victoria común: precede a los objetivos secretos en la misma jugada.
+            detalle={'tipo':'general', 'objetivos':['Ocupar al menos 45 países'],
+                     'paises':paises}
         else:
             resultados=[]
             for obj in jugador.objetivos:
@@ -657,10 +661,16 @@ class JuegoTEG(DiplomaciaMixin):
                 else:exito=self._cumple_ocupacion(jugador.idx,obj)
                 resultados.append(exito)
             if not resultados or not all(resultados):return False
-            motivo='objetivo(s) secreto(s)'
+            # En partidas de 2 se deben cumplir AMBAS misiones: mostrar las dos.
+            detalle={'tipo':'personal',
+                     'objetivos':[obj['descripcion'] for obj in jugador.objetivos],
+                     'paises':paises}
+        self.detalle_victoria=detalle
         self.ganador_idx=jugador.idx
         self.fase='VICTORIA'
-        self.log(f'VICTORIA de {jugador.nombre}: {motivo}')
+        motivo=' / '.join(detalle['objetivos'])
+        clase='objetivo general' if detalle['tipo']=='general' else 'objetivo personal'
+        self.log(f'VICTORIA de {jugador.nombre} ({clase}): {motivo}')
         return True
 
     def reagrupar(self, desde, hacia, cantidad):
