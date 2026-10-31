@@ -1366,6 +1366,9 @@ class Renderer:
         else:
             texto+='\n\nPara acordar: seleccioná tu país de origen y el país destino; luego P.'
             botones=[('No agresión mundial','pacto_mundial_lista'),('Romper pacto','pacto_romper_lista'),('Asaltos','pacto_asaltos'),('Cerrar','ok')]
+        if origen in juego.tablero and destino in juego.tablero and not juego._ataque_permitido(origen,destino,actor_idx=a):
+            botones=[b for b in botones if b[1]!='pacto_agresion']
+            texto+='\nNo se permite ataque conjunto desde ese origen con la situación o pacto vigente.'
         self.mostrar_popup('DIPLOMACIA Y PACTOS',texto,botones)
 
     def mostrar_historial(self, juego):
@@ -1616,6 +1619,7 @@ class Renderer:
         color_humano=0
         permitir_destruccion=True
         animaciones=True
+        dificultad='Normal'
         running=True
         mapa_portada=pygame.transform.smoothscale(self.mapa,(750,563))
         while running:
@@ -1637,7 +1641,7 @@ class Renderer:
             self._texto('7 CONTINENTES',271,743,self.font_md,C_TEXT)
             self._texto('1 OBJETIVO: LA VICTORIA',497,743,self.font_md,C_ACCENT2)
 
-            dx,dy,dw,dh=862,190,660,587
+            dx,dy,dw,dh=862,175,660,710
             self._tarjeta((dx,dy,dw,dh),(20,36,55),(57,83,108),16)
             self._texto('PREPARÁ TU PARTIDA',dx+29,dy+23,self.font_xl,C_TEXT)
             self._texto('1 jugador humano + adversarios controlados por IA',
@@ -1671,9 +1675,20 @@ class Renderer:
                 nombre=self.font_micro.render(nom,True,C_TEXT)
                 self.screen.blit(nombre,nombre.get_rect(center=(bx+45,dy+320)))
                 colores_rect.append((rect,ci))
+            self._texto('DIFICULTAD DE LOS BOTS',dx+29,dy+346,self.font_micro,C_ACCENT2)
+            dificultad_rects=[]
+            for i,(valor,etiqueta) in enumerate((('Normal','NORMAL'),('Dificil','DIFÍCIL'))):
+                rect=pygame.Rect(dx+29+i*310,dy+367,293,43)
+                activo=dificultad==valor
+                pygame.draw.rect(self.screen,(40,100,118) if activo else (32,53,73),rect,border_radius=9)
+                pygame.draw.rect(self.screen,C_ACCENT if activo else C_PANEL_BORDER,rect,
+                                 2 if activo else 1,border_radius=9)
+                txt=self.font_md.render(etiqueta,True,C_TEXT)
+                self.screen.blit(txt,txt.get_rect(center=rect.center))
+                dificultad_rects.append((rect,valor))
             self._texto('ORDEN ALEATORIO • TODOS INCORPORAN ANTES DE ATACAR',
-                        dx+29,dy+347,self.font_micro,C_TEXT_DIM)
-            check_rect=pygame.Rect(dx+29,dy+372,dw-58,52)
+                        dx+29,dy+417,self.font_micro,C_TEXT_DIM)
+            check_rect=pygame.Rect(dx+29,dy+442,dw-58,52)
             pygame.draw.rect(self.screen,(33,57,78),check_rect,border_radius=10)
             pygame.draw.rect(self.screen,C_ACCENT2 if permitir_destruccion else C_PANEL_BORDER,
                              check_rect,2 if permitir_destruccion else 1,border_radius=10)
@@ -1685,7 +1700,7 @@ class Renderer:
                         self.font_md,C_TEXT)
             self._texto('Solo afecta partidas de 4 a 6 jugadores',check_rect.x+50,check_rect.y+29,
                         self.font_micro,C_TEXT_DIM)
-            anim_rect=pygame.Rect(dx+29,dy+431,dw-58,52)
+            anim_rect=pygame.Rect(dx+29,dy+501,dw-58,52)
             pygame.draw.rect(self.screen,(33,57,78),anim_rect,border_radius=10)
             pygame.draw.rect(self.screen,C_ACCENT2 if animaciones else C_PANEL_BORDER,
                              anim_rect,2 if animaciones else 1,border_radius=10)
@@ -1697,17 +1712,17 @@ class Renderer:
                         self.font_md,C_TEXT)
             self._texto('Ataques, refuerzos, reagrupes y canjes visibles',anim_rect.x+50,anim_rect.y+29,
                         self.font_micro,C_TEXT_DIM)
-            jugar_rect=pygame.Rect(dx+29,dy+498,dw-58,58)
+            jugar_rect=pygame.Rect(dx+29,dy+568,dw-58,58)
             hover=jugar_rect.collidepoint(pygame.mouse.get_pos())
             pygame.draw.rect(self.screen,(38,136,139) if hover else (28,106,114),jugar_rect,border_radius=12)
             pygame.draw.rect(self.screen,C_ACCENT2,jugar_rect,2,border_radius=12)
             start_txt=self.font_lg.render('COMENZAR PARTIDA   →',True,C_TEXT)
             self.screen.blit(start_txt,start_txt.get_rect(center=jugar_rect.center))
-            self._texto('CONTROLES',dx+29,dy+571,self.font_micro,C_ACCENT)
+            self._texto('CONTROLES',dx+29,dy+641,self.font_micro,C_ACCENT)
             self._texto('Clic: países y acciones    •    T: cartas    •    O: objetivos',
-                        dx+29,dy+593,self.font_sm,C_TEXT_DIM,max_ancho=dw-53)
+                        dx+29,dy+663,self.font_sm,C_TEXT_DIM,max_ancho=dw-53)
             self._texto('F: bots    •    H: historial    •    Espacio: fase    •    ESC: salir',
-                        dx+29,dy+617,self.font_sm,C_TEXT_DIM,max_ancho=dw-53)
+                        dx+29,dy+687,self.font_sm,C_TEXT_DIM,max_ancho=dw-53)
             self._texto('TEG LA REVANCHA  |  PYGAME  |  MODO LOCAL',72,812,
                         self.font_micro,C_TEXT_DIM)
             self._texto('Reglas y mapa del material oficial proporcionado',72,834,
@@ -1723,9 +1738,11 @@ class Renderer:
                         if rect.collidepoint(ev.pos):seleccion=n
                     for rect,i in colores_rect:
                         if rect.collidepoint(ev.pos):color_humano=i
+                    for rect,valor in dificultad_rects:
+                        if rect.collidepoint(ev.pos):dificultad=valor
                     if check_rect.collidepoint(ev.pos):permitir_destruccion=not permitir_destruccion
                     if anim_rect.collidepoint(ev.pos):animaciones=not animaciones
                     if jugar_rect.collidepoint(ev.pos):running=False
                 if ev.type==pygame.KEYDOWN and ev.key==pygame.K_RETURN:
                     running=False
-        return seleccion,color_humano,permitir_destruccion,animaciones
+        return seleccion,color_humano,permitir_destruccion,animaciones,dificultad
