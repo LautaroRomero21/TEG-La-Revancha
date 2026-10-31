@@ -4,6 +4,7 @@ Los pactos públicos y condominios tienen lógica vinculante (pactos.py).
 """
 import random
 from pactos import DiplomaciaMixin
+from ia_dificil import EstrategiaDificil
 from collections import deque
 from itertools import combinations, product
 from data import (
@@ -84,12 +85,16 @@ class JuegoTEG(DiplomaciaMixin):
     MAX_DADOS_ATACANTE = 4
     MAX_DADOS_DEFENSOR = 4
 
-    def __init__(self, n_jugadores=4, nombres=None, color_humano=0, orden_inicial=None, objetivos_eliminacion=True):
+    def __init__(self, n_jugadores=4, nombres=None, color_humano=0, orden_inicial=None, objetivos_eliminacion=True, dificultad='Normal'):
         if not 2 <= n_jugadores <= 6:
             raise ValueError('Se requieren entre 2 y 6 jugadores (1 humano, resto bots).')
         if not isinstance(color_humano,int) or not 0 <= color_humano < 6:
             raise ValueError('Color humano fuera del rango (0-5)')
         colores = [color_humano] + [c for c in range(6) if c != color_humano][:n_jugadores-1]
+        if dificultad not in ('Normal','Dificil'):
+            raise ValueError('Dificultad desconocida: Normal o Dificil')
+        self.dificultad = dificultad
+        self.ia_dificil = EstrategiaDificil(self)
         self.n_jugadores = n_jugadores
         self.objetivos_eliminacion = bool(objetivos_eliminacion)
         self.jugadores = [Jugador(i, nombres[i] if nombres and i < len(nombres)
@@ -1226,10 +1231,11 @@ class JuegoTEG(DiplomaciaMixin):
             for destino in self.tablero[pais]['fronteras']:
                 victima=self.tablero[destino]['propietario']
                 if victima is None or victima==j.idx:continue
+                if not self._ataque_permitido(pais,destino,actor_idx=j.idx):continue
                 for vecino in self.tablero[destino]['fronteras']:
                     socio=self.tablero[vecino]['propietario']
                     if socio is None or socio in (victima,j.idx) or self.tablero[vecino]['ejercitos']<3:continue
-                    if socio==0:
+                    if socio==0 and self.puede_proponer_agresion_conjunta(j.idx,socio,pais,vecino,destino):
                         aliados.append((pais,vecino,destino,socio))
         if aliados and random.random()<.55:
             o1,o2,destino,socio=random.choice(aliados)
@@ -1297,6 +1303,8 @@ class JuegoTEG(DiplomaciaMixin):
         j=self.jugador_actual()
         if not j.es_bot or j.eliminado or self.fase=='VICTORIA' or self.propuesta_pendiente or self.reagrupe_aliado_pendiente:return None
         idx=j.idx
+        if self.dificultad=='Dificil':
+            return self.ia_dificil.paso(j)
         if self.fase==FASE_INCORPORAR:
             if (self.etapa=='hostilidades' and j.canje_ultima_ronda!=self.ronda
                     and self.opcion_canje(j) is not None):
