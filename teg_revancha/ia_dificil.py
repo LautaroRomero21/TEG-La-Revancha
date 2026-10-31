@@ -171,6 +171,22 @@ class EstrategiaDificil:
         candidatos=[]
         for origen in juego.paises_de(jugador.idx):
             if juego.ejercitos_de(origen,jugador.idx)<2:continue
+            # Tras romper la tregua, los copropietarios originales atacan
+            # solamente DENTRO del condominio, nunca desde otro territorio.
+            if origen in juego.condominios:
+                rivales=[i for i in juego.condominios[origen] if i!=jugador.idx]
+                for otro in rivales:
+                    activo=any(p['activo'] and p['tipo']=='condominio'
+                               and p['pais']==origen and
+                               set(p['jugadores'])=={jugador.idx,otro}
+                               for p in juego.pactos)
+                    if activo or juego._prohibido_por_pacto(jugador.idx,otro,origen,origen):continue
+                    defensa=juego.ejercitos_de(origen,otro)
+                    prob,bajas=probabilidad_conquista(juego.ejercitos_de(origen,jugador.idx),
+                                                       defensa,juego.situacion)
+                    if prob>=.76:
+                        score=prob*(9+self.valor_pais(origen,jugador,ctx))-bajas*1.7
+                        if score>0:candidatos.append((score,prob,origen,origen))
             for destino in self._frentes(origen,jugador):
                 eval_=self.evaluacion_ataque(origen,destino,jugador,ctx)
                 if eval_:
