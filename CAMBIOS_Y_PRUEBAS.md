@@ -1,3 +1,15 @@
+# IA contextual de bots y frontera Chechenia–Kamchatka (octubre de 2026)
+
+- Eliminada la conexión **Chechenia ↔ Kamchatka** de ambos lados de `PAISES_DATA`. Se conservan los otros territorios y las fronteras recíprocas.
+- La IA consulta en cada decisión un estado resumido del tablero: territorios exclusivos por jugador (para la victoria general), control continental, concentración de tropas enemigas, oportunidades de misiones, amenazas y tropas incorporadas en el turno.
+- Los bots **ya no usan lotes fijos de 2/3/4 ejércitos**: pueden incorporar 1 en un frente seguro o concentrar varios para defenderse o abrir una ofensiva. Siempre respetan los fondos continentales y libres, el bloqueo y las restricciones del motor.
+- Ataques puntuados por oportunidad, ventaja militar, riesgo de contraataque, posible premio de tarjeta, objetivo personal, interrupción de continentes rivales y urgencia de frenar líderes cercanos a 45 países. Continúan calculándose tras cada tirada y mantienen las reglas de los condominios.
+- Reagrupamiento estratégico desde la retaguardia hacia el frente mediante distancias en territorios propios; se reserva defensa en zonas amenazadas y nunca se vuelven a mover unidades recibidas durante el turno.
+- Misiles reservados para amenazas o bloqueos reales; la diplomacia evita pactos de no agresión con rivales próximos a ganar o que se deban eliminar por misión. Se mantienen los perfiles existentes y el juego offline, sin dependencias externas de IA.
+- **Pruebas locales**: 141 `unittest` aprobados (126 del ZIP base más 15 de `test_estrategia_bot_v18.py`); 125 simulaciones de 2 a 6 jugadores hasta cinco rondas (8.900 ataques y 4.989 conquistas registradas), sin excepciones. Las pruebas locales se ejecutaron sobre el código base empaquetado con estas modificaciones; los archivos se publicaron y se verificaron en GitHub. Validación visual manual pendiente.
+
+---
+
 # Mejora — Pantalla de victoria con objetivo alcanzado (octubre de 2026)
 
 - Al concluir una partida, la pantalla de victoria identifica al jugador ganador (humano o bot), indica si alcanzó el objetivo general o sus misiones personales y muestra literalmente las descripciones de las tarjetas de misión correspondientes.
