@@ -9,8 +9,9 @@
 ## 🎮 Características
 
 - **Partidas de 2 a 6 jugadores:** un jugador humano y de 1 a 5 bots, con elección del color y rotación del orden de turno.
-- **Bots con distintos estilos:** agresivo, defensivo, oportunista, equilibrado y enfocado en la misión.
+- **Bots con estrategia contextual:** conservan perfiles agresivo, defensivo, oportunista, equilibrado y enfocado en la misión, pero revisan amenazas fronterizas, continentes en disputa, rivales cercanos a 45 países y riesgos de contraataque tras cada acción. Distribuyen refuerzos de 1, 2 o más ejércitos según las necesidades, reagrupan hacia frentes útiles, reservan misiles para bloqueos importantes y evitan pactos que favorezcan a rivales próximos a ganar.
 - **72 territorios y 7 continentes**, con fronteras y conexiones propias de La Revancha.
+- **Mapa actualizado:** eliminada la relación Chechenia ↔ Kamchatka de ambos lados del grafo, preservando la reciprocidad de las demás fronteras.
 - **Objetivos secretos** de conquista o eliminación de otros colores; posibilidad de excluir las misiones de destrucción antes de comenzar.
 - **Pantalla final de victoria:** muestra quién ganó y qué condición cumplió: objetivo general de 45 países, misión secreta de conquista/eliminación o ambas misiones en partidas de dos jugadores; también se revelan las misiones de los bots ganadores.
 - **Fases de juego:** preparación, incorporación de ejércitos, ataques, reagrupamientos y tarjetas. Todos los jugadores incorporan antes de comenzar los ataques de la ronda.
