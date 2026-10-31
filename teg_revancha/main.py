@@ -398,17 +398,24 @@ def manejar_pactos(accion,juego,renderer):
         b=juego.tablero[destino]['propietario'];tipo=accion[6:]
     else:return
     if tipo=='agresion':
+        if not juego._ataque_permitido(origen,destino,actor_idx=a):
+            renderer.mostrar_popup('ATAQUE CONJUNTO NO PERMITIDO',
+                'La situación de Fronteras abiertas/cerradas o un pacto impide '
+                'atacar desde el origen seleccionado. No se enviará propuesta.')
+            return
         # El aliado tiene que limitar con el mismo país tercero, y conservar
         # tropas para dejar una guarnición en el eventual condominio.
         candidatos=[]
         for q in juego.tablero[destino]['fronteras']:
             jidx=juego.tablero[q]['propietario']
             if (jidx is not None and jidx not in (a,b) and
-                juego.ejercitos_de(q,jidx)>=2 and juego.jugadores[jidx].es_bot):
+                juego.jugadores[jidx].es_bot and
+                juego.puede_proponer_agresion_conjunta(a,jidx,origen,q,destino)) :
                 candidatos.append((jidx,q))
         if origen in juego.condominios:
             for jidx in juego.condominios[origen]:
-                if jidx!=a and jidx!=b and juego.jugadores[jidx].es_bot and juego.ejercitos_de(origen,jidx)>=2:
+                if (jidx!=a and jidx!=b and juego.jugadores[jidx].es_bot
+                        and juego.puede_proponer_agresion_conjunta(a,jidx,origen,origen,destino)):
                     candidatos.insert(0,(jidx,origen))
         if not candidatos:
             renderer.mostrar_popup('PACTO DE AGRESIÓN','Se necesita un tercer jugador, aliado limítrofe al destino y con al menos 2 ejércitos.')
@@ -449,6 +456,12 @@ def resolver_pacto_agresion(accion,juego,renderer):
     pre,lider_s=resto.rsplit('_',1)
     idx_s,pais=pre.split('_',1)
     a=0;b=int(idx_s);lider=int(lider_s)
+    if not juego.puede_proponer_agresion_conjunta(
+            a,b,renderer.pais_seleccionado,pais,renderer.pais_objetivo,lider=lider):
+        renderer.mostrar_popup('ATAQUE CONJUNTO NO PERMITIDO',
+            'Las fronteras, la situación vigente, los ejércitos o los pactos '
+            'impiden esta propuesta. No se envió al aliado.')
+        return True
     if not juego.bot_acepta_pacto(b,'agresion',a,renderer.pais_objetivo):
         renderer.mostrar_popup('PACTO RECHAZADO',f'{juego.jugadores[b].nombre} no aceptó el ataque conjunto.')
         return True
@@ -624,12 +637,12 @@ def main():
     renderer = Renderer()
 
     # Pantalla de menú con cantidad de jugadores y color humano
-    n_jugadores, color_humano, incluir_eliminacion, animaciones_activas = renderer.pantalla_menu()
+    n_jugadores, color_humano, incluir_eliminacion, animaciones_activas, dificultad = renderer.pantalla_menu()
     renderer.animaciones_activas = animaciones_activas
 
     # Inicializar juego
     juego = JuegoTEG(n_jugadores=n_jugadores, color_humano=color_humano,
-                    objetivos_eliminacion=incluir_eliminacion)
+                    objetivos_eliminacion=incluir_eliminacion, dificultad=dificultad)
     renderer.construir_botones(juego)
 
     running = True
