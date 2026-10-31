@@ -90,6 +90,24 @@ class InteligenciaContextualV18(unittest.TestCase):
         self.assertGreater(j._valor_territorio_bot('Angola',j.jugadores[1],alto),
                            j._valor_territorio_bot('Angola',j.jugadores[1],bajo)+13)
 
+    def test_priorizar_frente_con_conquistas_posibles(self):
+        j=juego_bot()
+        j.jugadores[1].objetivos=[{'tipo':'ocupacion','cantidad':35}]
+        for d in j.tablero.values():
+            d['propietario']=0
+            d['ejercitos']=15
+        for p in ('Nigeria','Alaska'):
+            j.tablero[p]['propietario']=1
+            j.tablero[p]['ejercitos']=1
+        for q in j.tablero['Nigeria']['fronteras']:
+            j.tablero[q]['propietario']=0
+            j.tablero[q]['ejercitos']=1
+        for q in j.tablero['Alaska']['fronteras']:
+            j.tablero[q]['propietario']=0
+            j.tablero[q]['ejercitos']=20
+        self.assertEqual(j._seleccionar_refuerzo_bot(j.jugadores[1],
+                         ['Nigeria','Alaska']),'Nigeria')
+
     def test_evitar_ataque_con_desventaja_aplastante(self):
         j=juego_bot()
         j.fase=FASE_ATACAR
