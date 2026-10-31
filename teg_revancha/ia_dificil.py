@@ -231,6 +231,47 @@ class EstrategiaDificil:
         return {'texto':f'{jugador.nombre} (Difícil): +{cantidad} en {pais}',
                 'accion':'incorporar','pais':pais,'cantidad':cantidad}
 
+    def proponer_ataque_conjunto(self,jugador,contexto):
+        """Ataques coordinados cuando las fuerzas individuales son insuficientes.
+
+        Valida Fronteras abiertas/cerradas antes de proponer el acuerdo.
+        """
+        juego=self.j
+        candidatos=[]
+        for propio in juego.paises_exclusivos(jugador.idx):
+            tropas_a=juego.ejercitos_de(propio,jugador.idx)
+            if tropas_a<3:continue
+            for destino in self._frentes(propio,jugador):
+                if destino in juego.condominios:continue
+                defensa=juego.tablero[destino]['ejercitos']
+                if defensa<3:continue
+                individual=probabilidad_conquista(tropas_a,defensa,juego.situacion)[0]
+                if individual>=.80:continue
+                for p in juego.tablero[destino]['fronteras']:
+                    socio=juego.tablero[p]['propietario']
+                    if socio is None or socio in (jugador.idx,juego.tablero[destino]['propietario']):continue
+                    if contexto['paises'][socio]>=39:continue
+                    tropas_b=juego.ejercitos_de(p,socio)
+                    if tropas_b<3:continue
+                    if not juego.puede_proponer_agresion_conjunta(jugador.idx,socio,propio,p,destino):continue
+                    p_combinada=probabilidad_conquista(tropas_a+tropas_b-1,defensa,juego.situacion)[0]
+                    if p_combinada<.83:continue
+                    valor=self.valor_pais(destino,jugador,contexto)
+                    candidatos.append((p_combinada*valor,propio,p,destino,socio))
+        if not candidatos:return None
+        _,propio,otro,destino,socio=max(candidatos)
+        if socio==0:
+            juego.propuesta_pendiente={'tipo':'agresion','a':jugador.idx,'b':0,
+                'origen_a':propio,'origen_b':otro,'destino':destino}
+            return {'texto':f'{jugador.nombre} propone ofensiva coordinada a {destino}'}
+        if juego.bot_acepta_pacto(socio,'agresion',jugador.idx,destino):
+            ag=juego.proponer_agresion_conjunta(jugador.idx,socio,propio,otro,destino)
+            if ag:
+                resultado=juego.ejecutar_agresion_conjunta(ag['id'])
+                return {'texto':f'{jugador.nombre}: ataque conjunto a {destino}',
+                        'pais':propio,'destino':destino,'agresion':resultado}
+        return None
+
     def diplomacia(self,jugador):
         juego=self.j
         clave=(juego.ronda,jugador.idx,juego.turnos_terminados[jugador.idx])
@@ -246,6 +287,9 @@ class EstrategiaDificil:
                  for o in jugador.objetivos)):
                 if juego.romper_pacto(pacto['id'],jugador.idx):
                     return {'texto':f'{jugador.nombre} anuncia ruptura estratégica #{pacto["id"]}'}
+        if random.random()<.22:
+            ofensiva=self.proponer_ataque_conjunto(jugador,ctx)
+            if ofensiva:return ofensiva
         if random.random()>.16:return None
         opciones=[]
         for p in juego.paises_exclusivos(jugador.idx):
