@@ -1037,65 +1037,72 @@ class JuegoTEG(DiplomaciaMixin):
                 oportunidad*.5+puntos*.8-min(max(0,propios-mayores-5),15)*.5)
 
     def _seleccionar_refuerzo_bot(self, j, paises):
-        """Prioriza frentes vulnerables, victorias cercanas y expansión rentable."""
+        """Elige un frente donde los nuevos ejércitos puedan obtener conquistas.
+
+        No intenta salvar sin criterio cada país aislado frente a ejércitos
+        gigantescos: equilibra oportunidad, urgencia, valor territorial y el
+        costo de preparar una ofensiva. Reevalúa el tablero en cada decisión.
+        """
         contexto=self._contexto_estrategico_bot(j)
         perfil=j.estilo_bot or 'Equilibrado'
         valores=[]
         for p in paises:
             propios=self.ejercitos_de(p,j.idx)
-            enemigos=self._enemigos_limítrofes_bot(p,j)
-            max_rival=max((self.tablero[q]['ejercitos'] for q in enemigos),default=0)
-            oportunidades=[self._valor_territorio_bot(q,j,contexto) for q in enemigos
-                           if self._ataque_permitido(p,q)]
-            objetivo=max(oportunidades,default=0)
-            amenazado=max(0,max_rival+1-propios)
-            ventaja=max(0,propios-max_rival)
+            vecinos=[q for q in self.tablero[p]['fronteras']
+                     if not self.es_propietario(q,j.idx)
+                     and self.tablero[q]['propietario'] is not None
+                     and self._ataque_permitido(p,q)]
             repeticiones=self.bot_refuerzos_por_pais.get(p,0)
-            puntuacion=2.2*len(enemigos)+min(amenazado,14)*1.5+objetivo*.75
-            puntuacion+=self._valor_territorio_bot(p,j,contexto)*.20
-            puntuacion-=max(0,ventaja-5)*.9+repeticiones*.7
-            if not enemigos:puntuacion-=14
-            if perfil=='Defensivo':puntuacion+=min(amenazado,14)*1.6
-            elif perfil=='Agresivo':puntuacion+=objetivo*.55+min(len(enemigos),3)*1.2
-            elif perfil=='Objetivo':puntuacion+=objetivo*.55
-            elif perfil=='Oportunista':puntuacion+=max(0,4-max_rival)*1.2
-            # Algo de incertidumbre para evitar movimientos idénticos en partidas
-            # iguales, pero sin ahogar las señales importantes del tablero.
-            puntuacion+=random.uniform(-.6,.6)
+            if not vecinos:
+                valores.append((-25-repeticiones,p))
+                continue
+            fuerzas=[self.tablero[q]['ejercitos'] for q in vecinos]
+            debiles=sum(b<=3 for b in fuerzas)
+            oportunidad=max((self._valor_territorio_bot(q,j,contexto) for q in vecinos),
+                            default=0)
+            menor=min(fuerzas)
+            mayor=max(fuerzas)
+            deficit=max(0,min(menor*2+3,10)-propios)
+            # Evitar desperdiciar refuerzos para una defensa ya irrecuperable.
+            imposible=max(0,mayor-propios-12)
+            puntuacion=(3.5*len(vecinos)+oportunidad*.7+debiles*4.0+
+                        min(deficit,6)-min(imposible,18)-repeticiones*.75)
+            if propios>menor*3+5:puntuacion-=8
+            if perfil=='Defensivo':
+                puntuacion+=min(6,max(0,mayor+1-propios))*.85
+            elif perfil=='Agresivo':
+                puntuacion+=debiles*1.4
+            elif perfil=='Objetivo':
+                puntuacion+=max((self._preferencia(q,j) for q in vecinos),default=0)*.35
+            elif perfil=='Oportunista':
+                puntuacion+=sum(b<=2 for b in fuerzas)*1.1
+            puntuacion+=random.uniform(-.3,.3)
             valores.append((puntuacion,p))
-        valores.sort(reverse=True)
-        # Probabilidad reducida pero real de optar por el segundo frente útil.
-        if len(valores)>1 and valores[0][0]-valores[1][0]<2.2 and random.random()<.20:
-            return valores[1][1]
-        return valores[0][1]
+        return max(valores)[1]
 
     def _cantidad_refuerzo_bot(self, j, pais, disponibles):
-        """1, 2 o una concentración mayor según el estado del frente (no fija)."""
+        """Puede colocar 1 para mantener, o concentrar hasta 9 para conquistar."""
         if disponibles<=1:return 1
-        actuales=self.ejercitos_de(pais,j.idx)
-        enemigos=self._enemigos_limítrofes_bot(pais,j)
+        propios=self.ejercitos_de(pais,j.idx)
+        enemigos=[self.tablero[q]['ejercitos']
+                  for q in self.tablero[pais]['fronteras']
+                  if not self.es_propietario(q,j.idx) and self._ataque_permitido(pais,q)]
         if not enemigos:return 1
-        fuerzas=[self.tablero[q]['ejercitos'] for q in enemigos]
-        mayor=max(fuerzas)
-        menor=min(fuerzas)
-        if actuales>=2*mayor+2:
-            # Ya tiene fuerza suficiente para atacar: distribuir el sobrante.
-            return 1
-        if actuales>=mayor+3 and menor<=2:
-            return 1
-        brecha_defensiva=max(0,mayor+2-actuales)
-        brecha_ataque=max(0,int(menor*1.65+2-actuales))
+        menor=min(enemigos)
+        mayor=max(enemigos)
+        if propios>=2*mayor+3:return 1
+        if menor<=3 and propios>=menor*2+4:return 1
+        # Preparar una verdadera ofensiva, en lugar de dispersar 2 tropas
+        # por cada territorio que todavía no puede efectuar ataques útiles.
+        cantidad=max(3,round(menor*1.8+5-propios))
+        if mayor>propios:
+            cantidad=max(cantidad,round((mayor-propios)*.75)+2)
         perfil=j.estilo_bot or 'Equilibrado'
-        if perfil=='Defensivo':
-            objetivo=max(brecha_defensiva,2)
-        elif perfil=='Agresivo':
-            objetivo=max(brecha_ataque,brecha_defensiva//2,2)
-        else:
-            objetivo=max(brecha_ataque,brecha_defensiva,2)
-        # Concentrar más tropas ante amenazas reales, sin agotar el fondo en
-        # países ya dominantes o en tropas que no agregan valor táctico.
-        limite=8 if mayor>=10 else 6
-        return max(1,min(disponibles,limite,objetivo))
+        if perfil=='Defensivo' and mayor>propios:
+            cantidad=max(cantidad,round((mayor-propios)*.9)+3)
+        elif perfil=='Agresivo' and menor<=3:
+            cantidad+=1
+        return min(disponibles,9,cantidad)
 
     def _ataques_posibles_bot(self, j):
         """Reevalúa ataques después de cada tirada, considerando amenazas y carreras."""
