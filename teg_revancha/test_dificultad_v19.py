@@ -128,6 +128,19 @@ class EstrategiaAvanzada(unittest.TestCase):
         despues=j.ia_dificil.contexto(j.jugadores[1])
         self.assertEqual(antes,despues)
 
+    def test_ataque_interno_condominio_respeta_tregua(self):
+        j=self.j
+        j.condominios['Canada']={1:15,2:1}
+        j._sincronizar_condominio('Canada')
+        pacto=j._nuevo_pacto('condominio',1,2,pais='Canada')
+        with patch.object(j,'paises_de',return_value=['Canada']):
+            with patch.object(j.ia_dificil,'_frentes',return_value=[]):
+                self.assertIsNone(j.ia_dificil.candidato_ataque(j.jugadores[1]))
+                pacto['activo']=False
+                resultado=j.ia_dificil.candidato_ataque(j.jugadores[1])
+                self.assertIsNotNone(resultado)
+                self.assertEqual(resultado[-2:],('Canada','Canada'))
+
     def test_bot_avanza_con_acciones_legales(self):
         j=self.j
         j.fase=FASE_INCORPORAR
