@@ -1,3 +1,15 @@
+# Modo Difícil y validación anticipada de ataques conjuntos (31/10/2026)
+
+- **Normal (predeterminado):** conserva el flujo de decisión anterior de la IA. **Difícil:** nueva opción seleccionable antes de comenzar la partida, independiente de Normal y persistida en `JuegoTEG.dificultad`.
+- **Nuevo módulo `teg_revancha/ia_dificil.py`:** heurística estratégica que revisa en cada paso el tablero, los continentes, los rivales cercanos a 45 países, la presión fronteriza, posibles objetivos rivales *inferidos de su presencia pública*, tarjetas disponibles y posiciones de alta conectividad. No consulta objetivos secretos de rivales.
+- **Dados:** distribución combinatoria exacta de cada tirada (1 a 4 dados, empates a favor del defensor); un programa dinámico estima probabilidad final de conquista y bajas esperadas con Nieve, Viento a favor y doble fuerza. Se acotan pilas superiores a 36 ejércitos por rendimiento, por lo que en esos casos se trata de una estimación aproximada.
+- **Táctica:** selección de ataques con umbral de probabilidad y penalización de pérdidas y contraataques; refuerzos para defensa y puntos de ruptura; reagrupes desde retaguardia hacia frentes; canjes cuando hay oportunidades o urgencias; misiles, rupturas diferidas y pactos defensivos; ataques conjuntos si resulta estratégicamente apropiado y pasan el validador legal. Las batallas internas de condominios respetan la tregua y su ruptura diferida.
+- **Sin mecánica inventada de capitales:** esta edición del motor no incluye capitales como territorios especiales. La IA protege países estratégicos por conectividad y carrera continental, pero no altera el reglamento.
+- **Corrección de pacto conjunto:** `puede_proponer_agresion_conjunta()` verifica *ambos orígenes* y pactos vigentes según Fronteras abiertas/cerradas y Descanso antes de mostrar o aceptar un acuerdo. Los menús ocultan la opción si el origen incumple la situación; la propuesta humana y la automática quedan bloqueadas antes de registrarse.
+- **Verificaciones locales:** 144 tests aprobados (126 del ZIP de PC usado como base + 18 de `test_dificultad_v19.py`). Se simularon 20 partidas del modo Difícil con 2–6 participantes y 4.037 decisiones de juego, sin excepciones. La suite de la rama actual completa y la interfaz visual de Pygame deben verificarse adicionalmente en el equipo o con CI.
+
+---
+
 # IA contextual de bots y frontera Chechenia–Kamchatka (octubre de 2026)
 
 - Eliminada la conexión **Chechenia ↔ Kamchatka** de ambos lados de `PAISES_DATA`. Se conservan los otros territorios y las fronteras recíprocas.
