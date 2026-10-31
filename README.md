@@ -10,6 +10,8 @@
 
 - **Partidas de 2 a 6 jugadores:** un jugador humano y de 1 a 5 bots, con elección del color y rotación del orden de turno.
 - **Bots con estrategia contextual:** conservan perfiles agresivo, defensivo, oportunista, equilibrado y enfocado en la misión, pero revisan amenazas fronterizas, continentes en disputa, rivales cercanos a 45 países y riesgos de contraataque tras cada acción. Distribuyen refuerzos de 1, 2 o más ejércitos según las necesidades, reagrupan hacia frentes útiles, reservan misiles para bloqueos importantes y evitan pactos que favorezcan a rivales próximos a ganar.
+- **Dificultad seleccionable:** antes de comenzar se elige **Normal** (la IA existente, sin cambios de comportamiento) o **Difícil** (módulo independiente `ia_dificil.py`). En Difícil, los bots calculan probabilidades de conquista con los dados y situaciones reales, estiman pérdidas y riesgo de contraataque; alternan objetivo secreto, anti-ganador, control de continentes, protección de frentes, robo de tarjetas por eliminación, canjes oportunos, ataques conjuntos y negociación/ruptura de pactos. Las decisiones se actualizan con el tablero sin usar Internet ni mirar misiones secretas de otros jugadores.
+- **Ataques conjuntos y situaciones:** se comprueba la legalidad de los dos orígenes **antes de proponer** un ataque conjunto. Si Fronteras abiertas/cerradas, descanso o un pacto lo impide, no se presenta una propuesta que luego fallaría por esa condición.
 - **72 territorios y 7 continentes**, con fronteras y conexiones propias de La Revancha.
 - **Mapa actualizado:** eliminada la relación Chechenia ↔ Kamchatka de ambos lados del grafo, preservando la reciprocidad de las demás fronteras.
 - **Objetivos secretos** de conquista o eliminación de otros colores; posibilidad de excluir las misiones de destrucción antes de comenzar.
@@ -109,6 +111,10 @@ python -m unittest discover -v -p "test_*.py"
 ```
 
 La versión actual incluye **126 pruebas automatizadas** que comprueban, entre otras cosas, reglas de turnos, conexiones, pactos, misiles, tarjetas, canjes, bloqueos, conquistas y comportamiento de las animaciones. Las pruebas automatizadas no sustituyen las partidas manuales para detectar problemas visuales o de interacción.
+
+### Nota sobre «capitales»
+
+Las reglas actualmente implementadas no asignan una mecánica especial a capitales. En la dificultad Difícil la IA trata como posiciones estratégicas los países con muchas conexiones y aquellos cuya ocupación completa un continente o bloquea la victoria rival, **sin inventar reglas nuevas**.
 
 ## 🛠️ Tecnologías
 
