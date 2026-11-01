@@ -1052,9 +1052,19 @@ class Renderer:
         boton(pygame.Rect(x+w-112,y+13,90,31),'CERRAR','cerrar')
         for i,j in enumerate(juego.jugadores):
             rect=pygame.Rect(x+25+i*181,y+83,171,40)
-            boton(rect,f'{j.nombre[:15]} ({len(j.tarjetas)})','jugador:'+str(i),v['jugador']==i)
+            boton(rect,'','jugador:'+str(i),v['jugador']==i)
+            # Dos renglones por color, sin esconder el valor del siguiente
+            # canje detrás de un popup ni calcularlo desde un total global.
+            draw(f'{j.nombre[:15]} ({len(j.tarjetas)})',
+                 C_TEXT,(rect.x+8,rect.y+4),self.font_sm)
+            draw(f'{j.canjes_realizados} canjes  |  sig. +{juego.valor_canje(j)}',
+                 C_ACCENT2 if v['jugador']==i else C_TEXT_DIM,
+                 (rect.x+8,rect.y+23),self.font_micro)
         elegido=juego.jugadores[v['jugador']]
         es_humano=v['jugador']==0
+        draw(f'{elegido.color_nombre.upper()}  ·  CANJES REALIZADOS: {elegido.canjes_realizados}'
+             f'  ·  PRÓXIMO CANJE: +{juego.valor_canje(elegido)} EJÉRCITOS',
+             C_ACCENT2,(x+25,y+128),self.font_micro)
         cartas=[('pais',i,p,juego.figuras_cartas[p]) for i,p in enumerate(elegido.tarjetas)]
         cartas += [('continente',i,c,'+'.join(juego._figuras_continente(c)) or 'CANJE') for i,c in enumerate(sorted(elegido.cartas_continente))]
         paginas=max(1,(len(cartas)+11)//12)
