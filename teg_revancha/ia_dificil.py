@@ -9,6 +9,7 @@ from functools import lru_cache
 from itertools import combinations_with_replacement
 from math import factorial
 import random
+from estrategia_turnos import LecturaDeTurnos
 
 
 def _tiradas(n):
@@ -74,6 +75,10 @@ class EstrategiaDificil:
     def __init__(self,juego):
         self.j=juego
         self._max_reagrupes=4
+        self.turnos=LecturaDeTurnos(juego)
+        # Colocaciones de cada bot en cada vuelta inicial, independientes del
+        # contador global, y sin filtraciones de la distribución rival.
+        self._colocaciones_preparacion={}
 
     def contexto(self,jugador):
         """Snapshot de propietarios y continentes, sin objetivos secretos ajenos."""
@@ -148,7 +153,12 @@ class EstrategiaDificil:
             return None
         p,bajas=probabilidad_conquista(tropas,defensa,juego.situacion)
         urgencia=ctx['paises'][enemigo]>=43
-        if p<(.60 if urgencia else .72):return None
+        ventana=self.turnos.ventana(jugador)
+        riesgo_temprano=ventana['fraccion_pendiente']
+        # Cuantos más jugadores quedan por atacar, más alto el requisito de
+        # éxito de un ataque no urgente.
+        exigencia=(.60 if urgencia else .72+.09*riesgo_temprano)
+        if p<exigencia:return None
         valor=self.valor_pais(destino,jugador,ctx)
         despues=max(1,tropas-bajas-3)
         vecinos=[v for v in juego.tablero[destino]['fronteras']
@@ -161,6 +171,24 @@ class EstrategiaDificil:
         riesgo_origen=max(0,mayor_origen-(tropas-bajas-3))*.8
         puntaje=p*valor-bajas*1.7-(1-p)*min(25,defensa)*.6
         puntaje-=contragolpe+riesgo_origen
+        # Estimar cómo quedarán ambas guarniciones después de las bajas
+        # esperadas y del traslado obligatorio a la nueva conquista.
+        # No contamos al país origen como enemigo del destino conquistado.
+        movimiento=min(3,max(1,int(tropas-bajas-1)))
+        origen_despues=max(1,int(tropas-bajas-movimiento))
+        destino_despues=max(1,movimiento)
+        riesgo_fuente=self.turnos.amenaza(
+            origen,jugador,guarnicion=origen_despues,excluir=(destino,))
+        riesgo_conquista=self.turnos.amenaza(
+            destino,jugador,guarnicion=destino_despues,excluir=(origen,))
+        reserva=self.turnos.reserva(origen,jugador,excluir=(destino,))
+        exponer_origen=max(0,reserva-origen_despues)
+        # Un ataque desde los primeros asientos se penaliza más: todavía
+        # falta que respondan muchos jugadores en esta y la próxima ronda.
+        factor=1+.55*riesgo_temprano
+        puntaje-=factor*(.95*min(16,riesgo_fuente)+
+                         .70*min(14,riesgo_conquista)+
+                         .75*min(10,exponer_origen))
         if juego.conquistas_turno==0 and len(jugador.tarjetas)<5:puntaje+=4
         if urgencia:puntaje+=8
         return puntaje,p
@@ -194,8 +222,63 @@ class EstrategiaDificil:
                     if puntaje>0:candidatos.append((puntaje,p,origen,destino))
         return max(candidatos) if candidatos else None
 
+    def refuerzo_preparacion(self,jugador):
+        """No anunciar la estrategia completa antes que coloquen los demás.
+
+        En la preparación inicial no existen refuerzos continentales: quien
+        juega primero reparte entre varios frentes defendibles, mientras que
+        uno de los últimos puede preparar una concentración más explícita.
+        """
+        juego=self.j
+        ventana=self.turnos.ventana(jugador)
+        llave=(juego.vuelta_preparacion,jugador.idx)
+        registro=self._colocaciones_preparacion.setdefault(llave,Counter())
+        tope=self.turnos.limite_preparacion(jugador)
+        opciones=[]
+        for pais in juego.paises_exclusivos(jugador.idx):
+            colocados=registro[pais]
+            if colocados>=tope:continue
+            d=juego.tablero[pais]
+            enemigos=[q for q in d['fronteras'] if not juego.es_propietario(q,jugador.idx)]
+            aliados=sum(juego.es_propietario(q,jugador.idx) for q in d['fronteras'])
+            jugadores_posteriores=sum(
+                juego.tablero[q]['propietario'] in ventana['restantes']
+                for q in enemigos)
+            fuerzas_posteriores=max(
+                (juego.tablero[q]['ejercitos'] for q in enemigos
+                 if juego.tablero[q]['propietario'] in ventana['restantes']),
+                default=0)
+            tropa=juego.ejercitos_de(pais,jugador.idx)
+            # Evitar construir una isla de 8/12 fichas de forma temprana;
+            # preferir posiciones comunicadas que resistan la respuesta.
+            valor=(2.0*len(enemigos)+1.5*aliados+
+                   1.7*jugadores_posteriores+
+                   .5*min(6,fuerzas_posteriores)+
+                   min(7,self.valor_pais(pais,jugador,self.contexto(jugador)))*.3-
+                   3.3*colocados-.7*max(0,tropa-4))
+            if ventana['fraccion_pendiente']>=.67:
+                valor-=max(0,colocados-1)*2.2
+            valor+=random.uniform(-.18,.18)
+            opciones.append((valor,pais))
+        if not opciones:
+            # Salvaguarda para tableros atípicos: no bloquear el turno.
+            opciones=[(0,p) for p in juego.paises_exclusivos(jugador.idx)]
+        _,pais=max(opciones)
+        margen=max(1,tope-registro[pais])
+        # Primeros asientos reparten de a 1-2; al final pueden concentrar,
+        # pero jamás por encima del límite de la vuelta.
+        lote=2 if ventana['fraccion_pendiente']>=.34 else 3
+        cantidad=min(juego.ejercitos_a_colocar,margen,lote)
+        if not juego.incorporar(pais,cantidad):
+            raise RuntimeError('IA Difícil: incorporación inicial inválida')
+        registro[pais]+=cantidad
+        return {'texto':f'{jugador.nombre} (Difícil): prepara +{cantidad} en {pais}',
+                'accion':'incorporar','pais':pais,'cantidad':cantidad}
+
     def refuerzo(self,jugador):
         juego=self.j
+        if juego.etapa=='preparacion':
+            return self.refuerzo_preparacion(jugador)
         # Un canje puede guardarse, pero no conviene perder una oportunidad por
         # límite de cartas ni ignorar un rival que está por ganar.
         if juego.etapa=='hostilidades' and jugador.canje_ultima_ronda!=juego.ronda:
@@ -216,6 +299,7 @@ class EstrategiaDificil:
         if not paises:raise RuntimeError('IA Difícil: no hay país válido para incorporar')
         ctx=self.contexto(jugador)
         evaluados=[]
+        ventana=self.turnos.ventana(jugador)
         for pais in paises:
             propias=juego.ejercitos_de(pais,jugador.idx)
             destinos=self._frentes(pais,jugador)
@@ -230,17 +314,26 @@ class EstrategiaDificil:
             mejor=max(oportunidades,default=(0,2,None))
             riesgo=max(0,amenaza+2-propias)
             repetidos=juego.bot_refuerzos_por_pais.get(pais,0)
-            puntuacion=mejor[0]*6+min(12,riesgo)*1.15+min(3,len(destinos))*1.4
-            puntuacion-=max(0,propias-amenaza-7)*.8+repetidos*.45
+            # La incorporación ocurre antes de TODOS los ataques. Quien viene
+            # después todavía puede reaccionar a nuestro despliegue.
+            amenaza_por_orden=self.turnos.amenaza(
+                pais,jugador,guarnicion=propias,colocacion=True)
+            puntuacion=(mejor[0]*6+min(12,riesgo)*1.15+
+                        min(3,len(destinos))*1.4+
+                        min(14,amenaza_por_orden)*.85)
+            puntuacion-=max(0,propias-amenaza-7)*.8+repetidos*(.9+ventana['fraccion_pendiente'])
             if not destinos and amenaza==0:puntuacion-=15
-            evaluados.append((puntuacion,pais,mejor,riesgo))
-        _,pais,mejor,riesgo=max(evaluados)
+            evaluados.append((puntuacion,pais,mejor,riesgo,amenaza_por_orden))
+        _,pais,mejor,riesgo,amenaza_por_orden=max(evaluados)
         pool=juego.refuerzos_continente.get(juego.tablero[pais]['continente'],0)
         libres=juego.ejercitos_a_colocar-sum(juego.refuerzos_continente.values())
         maximo=min(juego.ejercitos_a_colocar,pool if pool else libres)
         cantidad=max(1,max(mejor[1],riesgo))
         if not self._frentes(pais,jugador) and riesgo==0:cantidad=1
-        cantidad=min(maximo,cantidad,10)
+        # El último jugador puede concentrar más porque ya observó
+        # los refuerzos ajenos; uno temprano diversifica salvo emergencia.
+        limite=self.turnos.limite_incorporacion(jugador,amenaza_por_orden)
+        cantidad=min(maximo,cantidad,limite)
         if not juego.incorporar(pais,cantidad):
             raise RuntimeError('IA Difícil: incorporación inválida')
         juego.bot_refuerzos_por_pais[pais]=juego.bot_refuerzos_por_pais.get(pais,0)+cantidad
@@ -384,6 +477,9 @@ class EstrategiaDificil:
             mayor=max((juego.tablero[v]['ejercitos'] for v in rivales),default=0)
             recibidos=juego.reagrupados_recibidos.get(origen,0)
             reserva=max(1,int(mayor*.9)+2) if rivales else 1
+            # Nunca vaciar una retaguardia aparentemente segura si los
+            # siguientes jugadores pueden atacarla antes de que respondamos.
+            reserva=max(reserva,self.turnos.reserva(origen,jugador))
             disponibles=tropas-reserva-recibidos
             if disponibles<1:continue
             for destino in juego.tablero[origen]['fronteras']:
@@ -396,8 +492,16 @@ class EstrategiaDificil:
                 if dist[destino]==dist[origen] and necesidad<=0:continue
                 if dist[destino]==dist[origen] and reserva>=tropas-1:continue
                 score=10*(dist[origen]-dist[destino])+valor*.3+necesidad*2
+                amenaza_destino=self.turnos.amenaza(destino,jugador)
+                score+=min(15,amenaza_destino)*1.5
                 cantidad=min(disponibles,max(1,necesidad+3) if necesidad else disponibles)
-                opciones.append((score,origen,destino,cantidad))
+                # No crear una nueva debilidad en origen para apenas
+                # mejorar una posición de menor importancia estratégica.
+                riesgo_origen=self.turnos.amenaza(
+                    origen,jugador,guarnicion=tropas-cantidad)
+                riesgo_antes=self.turnos.amenaza(origen,jugador)
+                score-=max(0,riesgo_origen-riesgo_antes)*2.0
+                if score>0:opciones.append((score,origen,destino,cantidad))
         for _,origen,destino,cantidad in sorted(opciones,reverse=True):
             if juego.reagrupar(origen,destino,cantidad):
                 return {'texto':f'{jugador.nombre}: reagrupe {origen}->{destino} +{cantidad}',
