@@ -1,3 +1,14 @@
+# IA Difícil: orden de turnos y consulta de canjes (1/11/2026)
+
+- **Nuevo módulo `estrategia_turnos.py`:** modela los jugadores pendientes de la ronda y los que podrán actuar antes del próximo turno del bot, incluyendo la rotación del primer jugador. Respeta pactos, situaciones Fronteras abiertas/cerradas y Descanso en la evaluación de amenazas.
+- **Preparación inicial:** quien juega temprano reparte los refuerzos de forma más prudente entre varias fronteras; los últimos asientos pueden concentrar más. El registro de colocaciones de preparación es individual y por vuelta (8+4 o 18), independiente del modo Normal.
+- **Incorporación en hostilidades:** diferencia a quien aún espera que otros incorporen; considera amenazas por turno y limita grandes despliegues tempranos salvo defensa urgente.
+- **Ataques y reagrupamientos:** la puntuación del ataque incorpora riesgos de las guarniciones previstas en origen y destino, en función de las fuerzas enemigas que todavía pueden actuar. El reagrupamiento mantiene reservas para no desproteger un territorio antes del siguiente turno.
+- **Tarjetas:** las pestañas de cada color muestran canjes realizados y ejércitos del próximo canje. Los valores salen de `JuegoTEG.valor_canje(jugador)`, no de una progresión global ni de valores fijos.
+- **Normal:** mantiene el comportamiento existente. **Pruebas añadidas:** `test_orden_turnos_v20.py` contiene 15 escenarios de orden, rotación, preparación, ataque y canjes individuales. La validación gráfica de Pygame en Windows continúa siendo necesaria.
+
+---
+
 # Modo Difícil y validación anticipada de ataques conjuntos (31/10/2026)
 
 - **Normal (predeterminado):** conserva el flujo de decisión anterior de la IA. **Difícil:** nueva opción seleccionable antes de comenzar la partida, independiente de Normal y persistida en `JuegoTEG.dificultad`.
