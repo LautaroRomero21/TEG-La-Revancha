@@ -112,6 +112,10 @@ class CombateYReagrupamiento(unittest.TestCase):
         j=juego_orden((1,2,0,3))
         j.tablero['Angola']['ejercitos']=2
         j.tablero['Nigeria']['ejercitos']=19
+        # Sin un atacante posterior cercano, ambos turnos serían igualmente
+        # seguros. Etiopía amenaza la conquista y el origen desde el tablero.
+        j.tablero['Etiopia']['propietario']=2
+        j.tablero['Etiopia']['ejercitos']=11
         bot=j.jugadores[1]
         ctx=j.ia_dificil.contexto(bot)
         temprano=j.ia_dificil.evaluacion_ataque('Nigeria','Angola',bot,ctx)
