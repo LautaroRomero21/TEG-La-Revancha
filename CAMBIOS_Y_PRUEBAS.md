@@ -1,3 +1,14 @@
+# Bots Difícil: remontada mediante tarjetas y frontera Siberia–Chukchi (noviembre de 2026)
+
+- **Conexión corregida:** eliminada la relación Siberia ↔ Chukchi en los datos del mapa, manteniendo la reciprocidad del resto de las fronteras.
+- **Plan de remontada:** nuevo módulo `teg_revancha/estrategia_remontada.py`, utilizado solo por `ia_dificil.py`. Detecta bots con pocos países y gran desventaja territorial, y comprueba si todavía pueden solicitar tarjeta esa ronda.
+- **Incorporación de recuperación:** para jugadores debilitados selecciona un origen con un defensor adyacente accesible; calcula la cantidad aproximada mínima de ejércitos para alcanzar una probabilidad de conquista razonable. Evita gastar todas sus fichas ante una frontera imposible; respeta fondos continentales y refuerzos libres.
+- **Combates de recuperación:** si el bot necesita conquistar para obtener tarjetas, puede aceptar un umbral de riesgo algo menor al de Difícil habitual. Sigue evaluando dados, bajas esperadas, peligro de contraataques y orden de turnos. No realiza ataques con probabilidades extremadamente bajas.
+- **Tarjetas y reglas:** un país conquistado habilita la solicitud hasta el segundo canje; desde el tercero se requieren dos conquistas propias (o dos conjuntas). No busca otra tarjeta cuando ya tiene cinco, cuando la situación Crisis o una sanción lo impiden, o cuando ya cumplió el requisito. Se conserva Normal sin cambios.
+- **Verificación:** 18 pruebas nuevas en `test_remontada_v21.py`, incluidos casos de ataque real y solicitud de tarjeta, con un total de **222 tests aprobados en GitHub Actions** antes de la integración a main. La interfaz visual de Pygame debe validarse en el dispositivo.
+
+---
+
 # IA Difícil: orden de turnos y consulta de canjes (1/11/2026)
 
 - **Nuevo módulo `estrategia_turnos.py`:** modela los jugadores pendientes de la ronda y los que podrán actuar antes del próximo turno del bot, incluyendo la rotación del primer jugador. Respeta pactos, situaciones Fronteras abiertas/cerradas y Descanso en la evaluación de amenazas.
