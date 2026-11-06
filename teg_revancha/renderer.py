@@ -520,6 +520,22 @@ class Renderer:
         finally:
             superficie.set_clip(recorte_anterior)
 
+    @staticmethod
+    def _dibujar_numero_condominio(superficie, texto, fuente, centro):
+        """Número blanco con contorno oscuro, legible sobre cualquier color.
+
+        Dibuja primero ocho copias desplazadas un píxel y después el glifo
+        blanco centrado. Así el contraste funciona tanto sobre una mitad
+        blanca como sobre la mitad negra, sin tapar los colores del condominio.
+        """
+        contorno=fuente.render(texto,True,(10,19,31))
+        centro_x,centro_y=centro
+        for dx,dy in ((-1,-1),(0,-1),(1,-1),(-1,0),(1,0),
+                      (-1,1),(0,1),(1,1)):
+            superficie.blit(contorno,contorno.get_rect(center=(centro_x+dx,centro_y+dy)))
+        numero=fuente.render(texto,True,(255,255,255))
+        superficie.blit(numero,numero.get_rect(center=centro))
+
     def _dibujar_tokens(self, juego):
         """Dibuja las fichas, manteniendo el color anterior en una conquista animada."""
         for nombre, datos in juego.tablero.items():
@@ -575,10 +591,15 @@ class Renderer:
 
             etiqueta=(str(ejercitos) if nombre not in juego.condominios
                       else '/'.join(str(n) for n in juego.condominios[nombre].values()))
-            if nombre in juego.condominios:font_num=self.font_misil;txt_color=(255,255,255)
-            txt = font_num.render(etiqueta, True, txt_color)
-            trect = txt.get_rect(center=(cx, cy))
-            self.screen.blit(txt, trect)
+            if nombre in juego.condominios:
+                # El blanco de una mitad hacía invisibles los números blancos.
+                # El contorno oscuro mantiene la legibilidad sobre ambos colores.
+                self._dibujar_numero_condominio(
+                    self.screen, etiqueta, self.font_misil, (cx, cy))
+            else:
+                txt = font_num.render(etiqueta, True, txt_color)
+                trect = txt.get_rect(center=(cx, cy))
+                self.screen.blit(txt, trect)
 
             # Misil realista vertical, pegado al costado izquierdo del círculo
             # (como en el ejemplo), superponiéndose sólo al borde del token.
