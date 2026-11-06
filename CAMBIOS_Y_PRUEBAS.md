@@ -1,3 +1,11 @@
+# Corrección visual de condominios y frontera Chukchi–Chechenia (noviembre de 2026)
+
+- Los condominios antes dibujaban el segundo color como un **triángulo** dentro del círculo. Se reemplazó por dos mitades de un círculo completo, recortadas a izquierda/derecha. Se restablece el recorte previo de la superficie para no afectar el resto del mapa, texto, selección ni misiles.
+- Eliminada la relación **Chukchi ↔ Chechenia** en ambos sentidos de `PAISES_DATA`.
+- Agregadas siete pruebas de regresión, incluyendo comprobación de los píxeles del arco derecho y la reciprocidad de fronteras. Se mantiene la batería completa de GitHub Actions.
+
+---
+
 # IA Difícil: incursiones tácticas para conseguir tarjetas (noviembre de 2026)
 
 - Un bot Difícil puede realizar un **ataque de oportunidad** contra un país débil cuyo valor a corto plazo es habilitar la tarjeta del turno, aunque luego el país quede vulnerable a una reconquista.

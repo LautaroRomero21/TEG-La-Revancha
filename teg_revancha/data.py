@@ -66,7 +66,7 @@ PAISES_DATA = {
     'Albania': {"continente": 'Europa', "fronteras": ['Irak', 'Iran', 'Polonia', 'Ucrania'], "coords": (860, 390)},
     'Siberia': {"continente": 'Asia', "fronteras": ['Chechenia', 'China', 'Rusia'], "coords": (962, 95)},
     'Kamchatka': {"continente": 'Asia', "fronteras": ['Alaska', 'China', 'Chukchi', 'Corea', 'Japon'], "coords": (1065, 180)},
-    'Chechenia': {"continente": 'Asia', "fronteras": ['China', 'Chukchi', 'Rusia', 'Siberia'], "coords": (964, 163)},
+    'Chechenia': {"continente": 'Asia', "fronteras": ['China', 'Rusia', 'Siberia'], "coords": (964, 163)},
     'Rusia': {"continente": 'Asia', "fronteras": ['Chechenia', 'China', 'Iran', 'Siberia', 'Turquia', 'Ucrania'], "coords": (935, 233)},
     'Japon': {"continente": 'Asia', "fronteras": ['Corea', 'Kamchatka'], "coords": (1160, 279)},
     'Corea': {"continente": 'Asia', "fronteras": ['China', 'Japon', 'Kamchatka', 'Malasia', 'Vietnam'], "coords": (1095, 330)},
@@ -93,7 +93,7 @@ PAISES_DATA = {
     'Australia': {"continente": 'Oceania', "fronteras": ['Chile', 'Filipinas', 'Sumatra', 'Tasmania', 'Tonga'], "coords": (1060, 748)},
     'Tasmania': {"continente": 'Oceania', "fronteras": ['Australia', 'Nueva Zelanda'], "coords": (1080, 848)},
     'Nueva Zelanda': {"continente": 'Oceania', "fronteras": ['Tasmania'], "coords": (1020, 888)},
-    'Chukchi': {"continente": 'Asia', "fronteras": ['Alaska', 'Chechenia', 'China', 'Kamchatka'], "coords": (1062, 100)},
+    'Chukchi': {"continente": 'Asia', "fronteras": ['Alaska', 'China', 'Kamchatka'], "coords": (1062, 100)},
 }
 
 # ─────────────────────────────────────────────

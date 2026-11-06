@@ -500,6 +500,26 @@ class Renderer:
             return (trans['defensor_idx'],trans['ejercitos_defensor'])
         return actual
 
+    @staticmethod
+    def _dibujar_mitades_condominio(superficie, centro, radio, color_izq, color_der):
+        """Dos semicírculos reales, con el MISMO radio y contorno circular.
+
+        El clip divide un círculo en dos mitades verticales. Se restaura el
+        recorte anterior de la superficie para no afectar al resto del mapa,
+        los textos, misiles ni los bordes de selección de los territorios.
+        """
+        cx, cy = centro
+        recorte_anterior = superficie.get_clip()
+        try:
+            mitad_izquierda = pygame.Rect(cx-radio, cy-radio, radio, radio*2+1)
+            mitad_derecha = pygame.Rect(cx, cy-radio, radio+1, radio*2+1)
+            superficie.set_clip(recorte_anterior.clip(mitad_izquierda))
+            pygame.draw.circle(superficie, color_izq, (cx, cy), radio)
+            superficie.set_clip(recorte_anterior.clip(mitad_derecha))
+            pygame.draw.circle(superficie, color_der, (cx, cy), radio)
+        finally:
+            superficie.set_clip(recorte_anterior)
+
     def _dibujar_tokens(self, juego):
         """Dibuja las fichas, manteniendo el color anterior en una conquista animada."""
         for nombre, datos in juego.tablero.items():
@@ -526,15 +546,18 @@ class Renderer:
 
             # Sombra del token
             pygame.draw.circle(self.screen, (5, 11, 22), (cx+2, cy+3), self.RADIO_TOKEN+3)
-            # Contraste adicional para el jugador negro y blanco.
-            pygame.draw.circle(self.screen, color, (cx, cy), self.RADIO_TOKEN)
+            # El condominio ocupa el disco completo: dos SEMICÍRCULOS,
+            # no un círculo izquierdo y un triángulo sobre el lado derecho.
             if nombre in juego.condominios:
-                # Una mitad de color por firmante, ejércitos en mini-etiquetas.
                 duo=list(juego.condominios[nombre].items())
-                pygame.draw.circle(self.screen,juego.jugadores[duo[0][0]].color,(cx,cy),self.RADIO_TOKEN)
-                pygame.draw.polygon(self.screen,juego.jugadores[duo[1][0]].color,
-                    [(cx,cy-self.RADIO_TOKEN),(cx+self.RADIO_TOKEN,cy),(cx,cy+self.RADIO_TOKEN)])
+                self._dibujar_mitades_condominio(
+                    self.screen, (cx, cy), self.RADIO_TOKEN,
+                    juego.jugadores[duo[0][0]].color,
+                    juego.jugadores[duo[1][0]].color)
                 color=(21,35,53)
+            else:
+                # Contraste adicional para las fichas individuales negro/blanco.
+                pygame.draw.circle(self.screen, color, (cx, cy), self.RADIO_TOKEN)
             borde_externo=(214,232,242) if dueno_idx is not None and juego.jugadores[dueno_idx].color_nombre=='Negro' else (28,40,53)
             pygame.draw.circle(self.screen,borde_externo,(cx,cy),self.RADIO_TOKEN,2)
 
