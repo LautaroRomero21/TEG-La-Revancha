@@ -1,3 +1,14 @@
+# IA Difícil: incursiones tácticas para conseguir tarjetas (noviembre de 2026)
+
+- Un bot Difícil puede realizar un **ataque de oportunidad** contra un país débil cuyo valor a corto plazo es habilitar la tarjeta del turno, aunque luego el país quede vulnerable a una reconquista.
+- Nuevo módulo `teg_revancha/estrategia_incursiones.py`: determina si falta una o dos conquistas para solicitar tarjeta, según canjes individuales; valida Crisis, sanciones, mano de cinco cartas, descansos y el límite de conquistas colectivas. Considera probabilidades reales de conquista, pérdidas estimadas, fronteras legales, reservas del origen y posible recaptura.
+- La IA prioriza una incursión frente a un ataque convencional si tiene ventaja táctica suficiente o si el objetivo es el mismo. No sustituye una ofensiva ganadora cuando ya está cerca de los 45 países.
+- **Ocupación mínima real:** en las incursiones Difícil, `JuegoTEG.atacar(..., traslado_bot=1)` traslada solo un ejército al país conquistado y mantiene el resto defendiendo el origen. El método valida la cantidad; ataques normales, bots Normal, ataques conjuntos y jugadores humanos conservan sus reglas anteriores.
+- Después del tercer canje, solo inicia una incursión de búsqueda de tarjeta si identifica al menos otra conquista que parezca viable; una conquista aislada no basta.
+- **Pruebas de regresión:** 13 pruebas nuevas en `test_incursiones_v22.py`: país débil expuesto, transferencia de 1 frente a 3, obtención real de tarjeta, dos conquistas tras tercer canje, mano llena, sanciones, fronteras y conservación de Normal. **235 de 235 pruebas aprobadas en GitHub Actions** antes de la integración. El aspecto visual y el comportamiento en una partida humana prolongada quedan por validar en Windows.
+
+---
+
 # Bots Difícil: remontada mediante tarjetas y frontera Siberia–Chukchi (noviembre de 2026)
 
 - **Conexión corregida:** eliminada la relación Siberia ↔ Chukchi en los datos del mapa, manteniendo la reciprocidad del resto de las fronteras.
