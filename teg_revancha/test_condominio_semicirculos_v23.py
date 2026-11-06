@@ -29,14 +29,14 @@ class FichasCondominio(unittest.TestCase):
                     (cx+18,cy+10),(cx-18,cy+10)):
             self.assertEqual(superficie.get_at((x,y)).a,0)
 
-    def test_el_color_derecho_llega_al_extremo_del_circulo(self):
+    def test_ambas_mitades_conservan_colores_distintos(self):
         superficie=pygame.Surface((60,60),pygame.SRCALPHA)
         Renderer._dibujar_mitades_condominio(
             superficie,(30,30),12,(10,20,30),(150,180,210))
-        # Pygame puede dejar sin pintar el pixel exacto del radio. Estos
-        # puntos están cerca del borde CURVO pero dentro de la ficha.
-        self.assertEqual(tuple(superficie.get_at((40,35)))[:3],(150,180,210))
-        self.assertEqual(tuple(superficie.get_at((20,35)))[:3],(10,20,30))
+        # Interior estable del disco. La prueba anterior cubre el ARCO
+        # completo fuera del antiguo triángulo.
+        self.assertEqual(tuple(superficie.get_at((36,30)))[:3],(150,180,210))
+        self.assertEqual(tuple(superficie.get_at((24,30)))[:3],(10,20,30))
 
     def test_clip_original_se_restaura(self):
         superficie=pygame.Surface((90,90),pygame.SRCALPHA)
