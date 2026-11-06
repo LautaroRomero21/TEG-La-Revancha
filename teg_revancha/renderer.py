@@ -1670,10 +1670,116 @@ class Renderer:
         self.screen.blit(text,text.get_rect(center=rect.center))
         pop['_btn_rects']=[(rect,'ok')]
 
+    def _dibujar_popup_resumen_pactos(self,juego):
+        """Tarjetas legibles con colores de jugadores y estado, scroll y acciones."""
+        pop=self.popup
+        w,h=1020,min(self.WIN_H-54,826)
+        x,y=(self.WIN_W-w)//2,(self.WIN_H-h)//2
+        n=len(pop['botones'])
+        cols=min(4,max(1,n))
+        filas=(n+cols-1)//cols
+        by=y+h-18-filas*45
+        vista=pygame.Rect(x+22,y+119,w-44,by-y-195)
+        velo=pygame.Surface((self.WIN_W,self.WIN_H),pygame.SRCALPHA)
+        velo.fill((4,12,24,210))
+        self.screen.blit(velo,(0,0))
+        self._tarjeta((x,y,w,h),(16,32,50),(91,143,163),16)
+        pygame.draw.rect(self.screen,C_ACCENT,(x+19,y+16,4,36),border_radius=2)
+        self._texto('DIPLOMACIA Y PACTOS',x+37,y+16,self.font_xl,C_ACCENT,max_ancho=w-65)
+        self._texto('Rupturas  ·  Tus pactos  ·  Rivales  ·  Acuerdos finalizados',
+                    x+25,y+62,self.font_sm,C_TEXT_DIM,max_ancho=w-52)
+        self._texto('Desplazá con la rueda del mouse o RePág/AvPág.',
+                    x+25,y+94,self.font_sm,C_ACCENT2,max_ancho=w-52)
+
+        alto_total=sum(35+len(sec['filas'])*77+10 for sec in pop['secciones'])
+        pop['scroll_max']=max(0,alto_total-vista.height)
+        pop['scroll']=max(0,min(pop.get('scroll',0),pop['scroll_max']))
+        clip_anterior=self.screen.get_clip()
+        try:
+            self.screen.set_clip(vista)
+            pos_y=vista.y-pop['scroll']
+            for sec in pop['secciones']:
+                if pos_y+30>=vista.y and pos_y<vista.bottom:
+                    pygame.draw.rect(self.screen,(30,59,79),
+                                     (vista.x,pos_y,vista.width,30),border_radius=6)
+                    self._texto(sec['titulo'],vista.x+12,pos_y+7,self.font_sm,
+                                C_ACCENT,max_ancho=vista.width-25)
+                pos_y+=35
+                for item in sec['filas']:
+                    if pos_y+73>vista.y and pos_y<vista.bottom:
+                        tarjeta=pygame.Rect(vista.x+2,pos_y,vista.width-4,70)
+                        estado=item['estado']
+                        rojo=estado=='RUPTURA ANUNCIADA'
+                        borde=(239,116,105) if rojo else (
+                            (95,190,153) if estado in ('VIGENTE','ACTIVA') else
+                            (112,134,154))
+                        pygame.draw.rect(self.screen,(24,44,63),tarjeta,border_radius=8)
+                        pygame.draw.rect(self.screen,borde,tarjeta,1,border_radius=8)
+                        pygame.draw.rect(self.screen,borde,
+                                         (tarjeta.x+2,tarjeta.y+8,4,tarjeta.height-16),
+                                         border_radius=2)
+                        self._texto(item['titulo'],tarjeta.x+17,tarjeta.y+9,
+                                    self.font_md,C_TEXT,max_ancho=tarjeta.width-238)
+                        self._texto(estado,tarjeta.right-217,tarjeta.y+11,
+                                    self.font_sm,borde,max_ancho=205)
+                        self._texto(item['detalle'],tarjeta.x+17,tarjeta.y+43,
+                                    self.font_sm,C_TEXT_DIM,max_ancho=tarjeta.width-403)
+                        # Etiquetas de color con fondo oscuro para que Blanco
+                        # se lea igual de bien que Negro y los demás.
+                        participantes=list(item['jugadores'])
+                        cx=tarjeta.right-185*len(participantes)-12
+                        for idx in participantes:
+                            j=juego.jugadores[idx]
+                            chip=pygame.Rect(cx,tarjeta.y+36,177,26)
+                            pygame.draw.rect(self.screen,(12,30,45),chip,border_radius=6)
+                            pygame.draw.circle(self.screen,j.color,(cx+15,chip.centery),8)
+                            pygame.draw.circle(self.screen,(222,231,237),
+                                               (cx+15,chip.centery),8,1)
+                            self._texto(j.color_nombre,cx+30,chip.y+6,
+                                        self.font_sm,C_TEXT,max_ancho=142)
+                            cx+=185
+                    pos_y+=77
+                pos_y+=10
+        finally:
+            self.screen.set_clip(clip_anterior)
+        if pop['scroll_max']:
+            largo=max(22,int(vista.height**2/alto_total))
+            top=vista.y+int((vista.height-largo)*pop['scroll']/pop['scroll_max'])
+            pygame.draw.rect(self.screen,(63,81,99),
+                             (vista.right-5,vista.top,5,vista.height),border_radius=2)
+            pygame.draw.rect(self.screen,C_ACCENT2,
+                             (vista.right-5,top,5,largo),border_radius=2)
+        pygame.draw.line(self.screen,C_PANEL_BORDER,
+                         (x+22,by-57),(x+w-22,by-57),1)
+        self._texto(pop['contexto'],x+26,by-46,self.font_sm,C_TEXT,max_ancho=w-52)
+        self._texto('ROJO = ruptura anunciada (todavía protege)    ·    GRIS = finalizado (sin protección)',
+                    x+26,by-25,self.font_sm,C_TEXT_DIM,max_ancho=w-52)
+        gap=9
+        bw=min(234,(w-47-(cols-1)*gap)//cols)
+        total=cols*bw+(cols-1)*gap
+        bx=x+(w-total)//2
+        mouse=pygame.mouse.get_pos()
+        pop['_btn_rects']=[]
+        for i,(nombre,accion) in enumerate(pop['botones']):
+            rect=pygame.Rect(bx+(i%cols)*(bw+gap),
+                             by+(i//cols)*45,bw,39)
+            hover=rect.collidepoint(mouse)
+            pygame.draw.rect(self.screen,C_BTN_HOVER if hover else C_BTN_NORMAL,
+                             rect,border_radius=8)
+            pygame.draw.rect(self.screen,C_ACCENT2 if hover else C_PANEL_BORDER,
+                             rect,2 if hover else 1,border_radius=8)
+            fuente=self.font_sm if len(nombre)>16 else self.font_md
+            texto=fuente.render(nombre,True,C_TEXT)
+            self.screen.blit(texto,texto.get_rect(center=rect.center))
+            pop['_btn_rects'].append((rect,accion))
+
     def _dibujar_popup(self, juego):
         if not self.popup:return
         if self.popup.get('tipo') == 'pacto_propuesta':
             self._dibujar_popup_pacto(juego)
+            return
+        if self.popup.get('tipo') == 'resumen_pactos':
+            self._dibujar_popup_resumen_pactos(juego)
             return
         if self.popup.get('tipo') in ('situacion','objetivos'):
             self._dibujar_popup_especial()
@@ -1686,9 +1792,12 @@ class Renderer:
         oscurecer=pygame.Surface((self.WIN_W,self.WIN_H),pygame.SRCALPHA)
         oscurecer.fill((5,11,22,190))
         self.screen.blit(oscurecer,(0,0))
-        self._tarjeta((x,y,w,h),(20,36,55),(96,147,164),16)
-        pygame.draw.rect(self.screen,C_ACCENT,(x+17,y+17,4,32),border_radius=2)
-        titulo=self.font_xl.render(self.popup['titulo'],True,C_ACCENT)
+        alerta=self.popup.get('tipo')=='aviso_ruptura'
+        acento=C_DANGER if alerta else C_ACCENT
+        self._tarjeta((x,y,w,h),(45,29,42) if alerta else (20,36,55),
+                      (190,91,95) if alerta else (96,147,164),16)
+        pygame.draw.rect(self.screen,acento,(x+17,y+17,4,32),border_radius=2)
+        titulo=self.font_xl.render(self.popup['titulo'],True,acento)
         self.screen.blit(titulo,(x+35,y+18))
         pygame.draw.line(self.screen,C_PANEL_BORDER,(x+20,y+62),(x+w-20,y+62),1)
         txt_y=y+75
