@@ -121,7 +121,9 @@ class IncorporacionParaRemontar(unittest.TestCase):
         self.assertIsNone(j.ia_dificil.remontada.plan_refuerzo(j.jugadores[1],['Nigeria']))
 
     def test_refuerzos_libres_y_continentales_siguen_limitados(self):
-        j=partida_critica(tropas=1,defensores=2)
+        # Dos refuerzos bastan aquí para volver asequible el ataque; en un
+        # escenario imposible, la respuesta válida sería no proponer plan.
+        j=partida_critica(tropas=2,defensores=1)
         j.refuerzos_continente={'Africa':2}
         plan=j.ia_dificil.remontada.plan_refuerzo(j.jugadores[1],['Nigeria'])
         self.assertIsNotNone(plan)
