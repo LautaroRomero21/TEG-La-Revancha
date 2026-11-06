@@ -1758,7 +1758,9 @@ class Renderer:
         bw=min(234,(w-47-(cols-1)*gap)//cols)
         total=cols*bw+(cols-1)*gap
         bx=x+(w-total)//2
-        mouse=pygame.mouse.get_pos()
+        # Las pruebas gráficas usan superficies offscreen sin display activo.
+        # En una partida real seguimos resaltando el botón bajo el cursor.
+        mouse=pygame.mouse.get_pos() if pygame.display.get_init() else (-1,-1)
         pop['_btn_rects']=[]
         for i,(nombre,accion) in enumerate(pop['botones']):
             rect=pygame.Rect(bx+(i%cols)*(bw+gap),
