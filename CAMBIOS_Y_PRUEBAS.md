@@ -1,3 +1,14 @@
+# Rediseño del visor de pactos y alertas de ruptura (6/11/2026)
+
+- **Tecla P:** el listado ya no es una cadena blanca de 10 acuerdos. Ahora presenta todos los pactos vigentes, agrupados por **rupturas anunciadas**, **pactos con el humano**, **pactos entre otros colores**, **zonas internacionales**, **ataques conjuntos** y **pactos del humano ya finalizados** (últimos seis), con participantes identificados mediante sus colores y estados diferenciados.
+- **Desplazamiento:** rueda del mouse, RePág/AvPág. Se conservan las acciones para proponer pactos, consultar asaltos y romper acuerdos.
+- **Ruptura anunciada por bot:** se agrega `JuegoTEG.avisos_pactos` en el motor, sin dependencia de Pygame. Cuando un bot rompe un pacto con el humano, se encola una alerta obligatoria que identifica color, número del pacto y plazo. El juego queda en pausa hasta confirmar el mensaje.
+- **Fin efectivo de la protección:** cuando el pacto expira al finalizar el próximo turno del humano, se genera una segunda alerta roja que advierte que el antiguo firmante ya puede atacar. La primera alerta no confunde el anuncio con una liberación inmediata, y los pactos en transición siguen apareciendo como todavía protegidos.
+- Las rupturas anunciadas por el humano no generan avisos innecesarios para él. Se conserva el comportamiento y las restricciones del motor diplomático.
+- **Pruebas:** `test_alertas_pactos_v25.py` agrega 12 casos: anuncio, expiración diferida, ausencia de avisos duplicados, alertas bloqueantes, ordenación de pactos, color de participantes, scroll, botones y visor vacío. Actualizada la comprobación antigua de `test_correcciones_v8.py` al nuevo formato. **258/258 pruebas aprobadas en GitHub Actions** en la rama de trabajo; sigue pendiente la validación visual manual en Windows.
+
+---
+
 # Corrección visual de condominios y frontera Chukchi–Chechenia (noviembre de 2026)
 
 - Los condominios antes dibujaban el segundo color como un **triángulo** dentro del círculo. Se reemplazó por dos mitades de un círculo completo, recortadas a izquierda/derecha. Se restablece el recorte previo de la superficie para no afectar el resto del mapa, texto, selección ni misiles.

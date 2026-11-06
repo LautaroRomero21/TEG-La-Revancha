@@ -1401,29 +1401,112 @@ class Renderer:
         self.menu_contextual=None
         return respuesta
 
+    @staticmethod
+    def _secciones_resumen_pactos(juego):
+        """Agrupar y ordenar sin truncar pactos: rupturas, propios y rivales."""
+        titulos={'pais':'NO AGRESIÓN ENTRE PAÍSES','continente':'NO AGRESIÓN CONTINENTAL',
+                 'frontera':'NO AGRESIÓN ENTRE CONTINENTES','mundial':'NO AGRESIÓN MUNDIAL',
+                 'condominio':'TREGUA DEL CONDOMINIO'}
+        def fila_pacto(p,estado):
+            tipo=p['tipo']
+            if tipo=='pais':detalle='Países: '+' / '.join(p.get('paises') or ())
+            elif tipo=='continente':detalle='Continente: '+str(p.get('continente') or '-')
+            elif tipo=='frontera':detalle='Continentes: '+' / '.join(p.get('continentes') or ())
+            elif tipo=='mundial':detalle='Protección mundial'
+            elif tipo=='condominio':detalle='País compartido: '+str(p.get('pais') or '-')
+            else:detalle=tipo
+            if estado=='RUPTURA ANUNCIADA' and p.get('turno_liberacion'):
+                otro,_=p['turno_liberacion']
+                detalle+=f'  |  Protege hasta terminar turno de {juego.jugadores[otro].color_nombre}'
+            return {'titulo':f'#{p["id"]} · {titulos.get(tipo,tipo.upper())}',
+                    'detalle':detalle,'jugadores':p['jugadores'],'estado':estado}
+        activos=list(juego.pactos_vigentes())
+        rotos=[p for p in activos if p.get('ruptura_por') is not None]
+        sanos=[p for p in activos if p.get('ruptura_por') is None]
+        propios=[p for p in sanos if 0 in p['jugadores']]
+        ajenos=[p for p in sanos if 0 not in p['jugadores']]
+        terminados=[p for p in juego.pactos if not p['activo'] and 0 in p['jugadores']]
+        grupos=[]
+        def agregar(nombre,filas):
+            if filas:grupos.append({'titulo':nombre,'filas':filas})
+        agregar('RUPTURAS ANUNCIADAS · TODAVÍA PROTEGEN',
+                [fila_pacto(p,'RUPTURA ANUNCIADA') for p in sorted(
+                    rotos,key=lambda p:(0 not in p['jugadores'],-p['id']))])
+        agregar('PACTOS VIGENTES CON VOS',
+                [fila_pacto(p,'VIGENTE') for p in sorted(
+                    propios,key=lambda p:(next(i for i in p['jugadores'] if i!=0),p['id']))])
+        agregar('PACTOS ENTRE LOS DEMÁS COLORES',
+                [fila_pacto(p,'VIGENTE') for p in sorted(ajenos,key=lambda p:(p['jugadores'],p['id']))])
+        agregar('ZONAS INTERNACIONALES',[
+            {'titulo':f'#{z["id"]} · ZONA INTERNACIONAL',
+             'detalle':f'{z["pais"]} · Próximo: {juego.jugadores[z["pendiente"]].color_nombre}',
+             'jugadores':z['jugadores'],'estado':'ACTIVA'}
+            for z in juego.zonas_internacionales if z['activa']])
+        agregar('ATAQUES CONJUNTOS',[
+            {'titulo':f'#{ag["id"]} · ATAQUE CONJUNTO',
+             'detalle':f'{ag["destino"]} · Ronda {ag["ronda"]} · {ag["estado"]}',
+             'jugadores':ag['jugadores'],'estado':'PROGRAMADO'}
+            for ag in juego.agresiones_pendientes if ag['estado'] in ('pendiente','pausada')])
+        agregar('TUS PACTOS FINALIZADOS RECIENTEMENTE',[
+            fila_pacto(p,'FINALIZADO')
+            for p in sorted(terminados,key=lambda p:p['id'],reverse=True)[:6]])
+        if not grupos:
+            grupos=[{'titulo':'SIN PACTOS REGISTRADOS',
+                     'filas':[{'titulo':'No hay acuerdos para mostrar',
+                               'detalle':'Elegí origen y destino para proponer un pacto.',
+                               'jugadores':(),'estado':'INFORMACIÓN'}]}]
+        return grupos
+
     def mostrar_pactos(self,juego):
-        """Acuerdos públicos, propuestas y rupturas desde el tablero."""
-        a=0  # Los pactos se pueden consultar y romper fuera de turno.
-        origen=self.pais_seleccionado
-        destino=self.pais_objetivo
-        vigente=[juego.descripcion_pacto(p) for p in juego.pactos_vigentes()]
-        vigente += [f'ZONA #{z["id"]} · {z["pais"]}' for z in juego.zonas_internacionales if z['activa']]
-        vigente += [f'AGRESIÓN #{ag["id"]} · {ag["destino"]} · {ag["estado"]}' for ag in juego.agresiones_pendientes if ag['estado'] in ('pendiente','pausada')]
-        texto=('PACTOS VIGENTES:\n'+'\n'.join(vigente[-10:]) if vigente else 'No hay pactos vigentes.')
+        """Ventana P: visor ordenado por estado y participantes, con desplazamiento."""
+        origen,destino=self.pais_seleccionado,self.pais_objetivo
         otro=(juego.tablero[destino]['propietario'] if destino in juego.tablero else None)
-        if origen in juego.tablero and destino in juego.tablero and juego.es_propietario(origen,a) and otro is not None and otro!=a:
-            texto+=f'\n\nSelección: {origen} -> {destino} ({juego.jugadores[otro].color_nombre}).'
+        if (origen in juego.tablero and destino in juego.tablero
+                and juego.es_propietario(origen,0) and otro is not None and otro!=0):
+            contexto=f'SELECCIÓN: {origen} → {destino} ({juego.jugadores[otro].color_nombre})'
             botones=[('Entre países','pacto_pais'),('Continente','pacto_continente'),
                      ('Entre continentes','pacto_frontera'),('Mundial','pacto_mundial'),
                      ('Zona internac.','pacto_zona'),('Ataque conjunto','pacto_agresion'),
-                     ('Romper pacto','pacto_romper_lista'),('Asaltos','pacto_asaltos'),('Cerrar','ok')]
+                     ('Romper pacto','pacto_romper_lista'),('Asaltos','pacto_asaltos'),
+                     ('Cerrar','ok')]
         else:
-            texto+='\n\nPara acordar: seleccioná tu país de origen y el país destino; luego P.'
-            botones=[('No agresión mundial','pacto_mundial_lista'),('Romper pacto','pacto_romper_lista'),('Asaltos','pacto_asaltos'),('Cerrar','ok')]
-        if origen in juego.tablero and destino in juego.tablero and not juego._ataque_permitido(origen,destino,actor_idx=a):
+            contexto='Para negociar: elegí país de origen y destino; luego presioná P.'
+            botones=[('No agresión mundial','pacto_mundial_lista'),
+                     ('Romper pacto','pacto_romper_lista'),('Asaltos','pacto_asaltos'),
+                     ('Cerrar','ok')]
+        if (origen in juego.tablero and destino in juego.tablero and
+                not juego._ataque_permitido(origen,destino,actor_idx=0)):
             botones=[b for b in botones if b[1]!='pacto_agresion']
-            texto+='\nNo se permite ataque conjunto desde ese origen con la situación o pacto vigente.'
-        self.mostrar_popup('DIPLOMACIA Y PACTOS',texto,botones)
+            contexto+='  |  Ataque conjunto no permitido.'
+        self.popup={'tipo':'resumen_pactos','titulo':'DIPLOMACIA Y PACTOS',
+                    'secciones':self._secciones_resumen_pactos(juego),
+                    'contexto':contexto,'botones':botones,'scroll':0}
+        self.menu_contextual=None
+
+    def mostrar_alerta_ruptura(self,juego,aviso):
+        """Alerta obligatoria cuando un bot anuncia o concreta una ruptura."""
+        color=juego.jugadores[aviso['por_idx']].color_nombre
+        detalle=aviso['descripcion']
+        if aviso['tipo']=='ruptura_anunciada':
+            titulo='¡RUPTURA DE PACTO ANUNCIADA!'
+            mensaje=(f'{color} anunció la ruptura del pacto #{aviso["pacto_id"]}.\n'
+                     f'{detalle}\n\n'
+                     'La protección SIGUE VIGENTE hasta que TERMINE TU PRÓXIMO TURNO.\n'
+                     'Después de ese turno podrá atacarte. Prepará tus fronteras.')
+        else:
+            titulo='¡PACTO FINALIZADO: SIN PROTECCIÓN!'
+            mensaje=(f'El pacto #{aviso["pacto_id"]} con {color} ya terminó.\n'
+                     f'{detalle}\n\n'
+                     'ATENCIÓN: el rival ya puede atacarte donde antes había protección.')
+        self.mostrar_popup(titulo,mensaje,[('ENTENDIDO','ok')])
+        self.popup['tipo']='aviso_ruptura'
+        self.popup['obligatorio']=True
+        self.menu_contextual=None
+
+    def desplazar_pactos(self,delta):
+        if self.popup and self.popup.get('tipo')=='resumen_pactos':
+            maximo=self.popup.get('scroll_max',0)
+            self.popup['scroll']=max(0,min(maximo,self.popup.get('scroll',0)+delta*60))
 
     def mostrar_historial(self, juego):
         """Listado ampliado; útil con 5-6 participantes cuando el panel se llena."""
@@ -1587,10 +1670,118 @@ class Renderer:
         self.screen.blit(text,text.get_rect(center=rect.center))
         pop['_btn_rects']=[(rect,'ok')]
 
+    def _dibujar_popup_resumen_pactos(self,juego):
+        """Tarjetas legibles con colores de jugadores y estado, scroll y acciones."""
+        pop=self.popup
+        w,h=1020,min(self.WIN_H-54,826)
+        x,y=(self.WIN_W-w)//2,(self.WIN_H-h)//2
+        n=len(pop['botones'])
+        cols=min(4,max(1,n))
+        filas=(n+cols-1)//cols
+        by=y+h-18-filas*45
+        vista=pygame.Rect(x+22,y+119,w-44,by-y-195)
+        velo=pygame.Surface((self.WIN_W,self.WIN_H),pygame.SRCALPHA)
+        velo.fill((4,12,24,210))
+        self.screen.blit(velo,(0,0))
+        self._tarjeta((x,y,w,h),(16,32,50),(91,143,163),16)
+        pygame.draw.rect(self.screen,C_ACCENT,(x+19,y+16,4,36),border_radius=2)
+        self._texto('DIPLOMACIA Y PACTOS',x+37,y+16,self.font_xl,C_ACCENT,max_ancho=w-65)
+        self._texto('Rupturas  ·  Tus pactos  ·  Rivales  ·  Acuerdos finalizados',
+                    x+25,y+62,self.font_sm,C_TEXT_DIM,max_ancho=w-52)
+        self._texto('Desplazá con la rueda del mouse o RePág/AvPág.',
+                    x+25,y+94,self.font_sm,C_ACCENT2,max_ancho=w-52)
+
+        alto_total=sum(35+len(sec['filas'])*77+10 for sec in pop['secciones'])
+        pop['scroll_max']=max(0,alto_total-vista.height)
+        pop['scroll']=max(0,min(pop.get('scroll',0),pop['scroll_max']))
+        clip_anterior=self.screen.get_clip()
+        try:
+            self.screen.set_clip(vista)
+            pos_y=vista.y-pop['scroll']
+            for sec in pop['secciones']:
+                if pos_y+30>=vista.y and pos_y<vista.bottom:
+                    pygame.draw.rect(self.screen,(30,59,79),
+                                     (vista.x,pos_y,vista.width,30),border_radius=6)
+                    self._texto(sec['titulo'],vista.x+12,pos_y+7,self.font_sm,
+                                C_ACCENT,max_ancho=vista.width-25)
+                pos_y+=35
+                for item in sec['filas']:
+                    if pos_y+73>vista.y and pos_y<vista.bottom:
+                        tarjeta=pygame.Rect(vista.x+2,pos_y,vista.width-4,70)
+                        estado=item['estado']
+                        rojo=estado=='RUPTURA ANUNCIADA'
+                        borde=(239,116,105) if rojo else (
+                            (95,190,153) if estado in ('VIGENTE','ACTIVA') else
+                            (112,134,154))
+                        pygame.draw.rect(self.screen,(24,44,63),tarjeta,border_radius=8)
+                        pygame.draw.rect(self.screen,borde,tarjeta,1,border_radius=8)
+                        pygame.draw.rect(self.screen,borde,
+                                         (tarjeta.x+2,tarjeta.y+8,4,tarjeta.height-16),
+                                         border_radius=2)
+                        self._texto(item['titulo'],tarjeta.x+17,tarjeta.y+9,
+                                    self.font_md,C_TEXT,max_ancho=tarjeta.width-238)
+                        self._texto(estado,tarjeta.right-217,tarjeta.y+11,
+                                    self.font_sm,borde,max_ancho=205)
+                        self._texto(item['detalle'],tarjeta.x+17,tarjeta.y+43,
+                                    self.font_sm,C_TEXT_DIM,max_ancho=tarjeta.width-403)
+                        # Etiquetas de color con fondo oscuro para que Blanco
+                        # se lea igual de bien que Negro y los demás.
+                        participantes=list(item['jugadores'])
+                        cx=tarjeta.right-185*len(participantes)-12
+                        for idx in participantes:
+                            j=juego.jugadores[idx]
+                            chip=pygame.Rect(cx,tarjeta.y+36,177,26)
+                            pygame.draw.rect(self.screen,(12,30,45),chip,border_radius=6)
+                            pygame.draw.circle(self.screen,j.color,(cx+15,chip.centery),8)
+                            pygame.draw.circle(self.screen,(222,231,237),
+                                               (cx+15,chip.centery),8,1)
+                            self._texto(j.color_nombre,cx+30,chip.y+6,
+                                        self.font_sm,C_TEXT,max_ancho=142)
+                            cx+=185
+                    pos_y+=77
+                pos_y+=10
+        finally:
+            self.screen.set_clip(clip_anterior)
+        if pop['scroll_max']:
+            largo=max(22,int(vista.height**2/alto_total))
+            top=vista.y+int((vista.height-largo)*pop['scroll']/pop['scroll_max'])
+            pygame.draw.rect(self.screen,(63,81,99),
+                             (vista.right-5,vista.top,5,vista.height),border_radius=2)
+            pygame.draw.rect(self.screen,C_ACCENT2,
+                             (vista.right-5,top,5,largo),border_radius=2)
+        pygame.draw.line(self.screen,C_PANEL_BORDER,
+                         (x+22,by-57),(x+w-22,by-57),1)
+        self._texto(pop['contexto'],x+26,by-46,self.font_sm,C_TEXT,max_ancho=w-52)
+        self._texto('ROJO = ruptura anunciada (todavía protege)    ·    GRIS = finalizado (sin protección)',
+                    x+26,by-25,self.font_sm,C_TEXT_DIM,max_ancho=w-52)
+        gap=9
+        bw=min(234,(w-47-(cols-1)*gap)//cols)
+        total=cols*bw+(cols-1)*gap
+        bx=x+(w-total)//2
+        # Las pruebas gráficas usan superficies offscreen sin display activo.
+        # En una partida real seguimos resaltando el botón bajo el cursor.
+        mouse=pygame.mouse.get_pos() if pygame.display.get_init() else (-1,-1)
+        pop['_btn_rects']=[]
+        for i,(nombre,accion) in enumerate(pop['botones']):
+            rect=pygame.Rect(bx+(i%cols)*(bw+gap),
+                             by+(i//cols)*45,bw,39)
+            hover=rect.collidepoint(mouse)
+            pygame.draw.rect(self.screen,C_BTN_HOVER if hover else C_BTN_NORMAL,
+                             rect,border_radius=8)
+            pygame.draw.rect(self.screen,C_ACCENT2 if hover else C_PANEL_BORDER,
+                             rect,2 if hover else 1,border_radius=8)
+            fuente=self.font_sm if len(nombre)>16 else self.font_md
+            texto=fuente.render(nombre,True,C_TEXT)
+            self.screen.blit(texto,texto.get_rect(center=rect.center))
+            pop['_btn_rects'].append((rect,accion))
+
     def _dibujar_popup(self, juego):
         if not self.popup:return
         if self.popup.get('tipo') == 'pacto_propuesta':
             self._dibujar_popup_pacto(juego)
+            return
+        if self.popup.get('tipo') == 'resumen_pactos':
+            self._dibujar_popup_resumen_pactos(juego)
             return
         if self.popup.get('tipo') in ('situacion','objetivos'):
             self._dibujar_popup_especial()
@@ -1603,9 +1794,12 @@ class Renderer:
         oscurecer=pygame.Surface((self.WIN_W,self.WIN_H),pygame.SRCALPHA)
         oscurecer.fill((5,11,22,190))
         self.screen.blit(oscurecer,(0,0))
-        self._tarjeta((x,y,w,h),(20,36,55),(96,147,164),16)
-        pygame.draw.rect(self.screen,C_ACCENT,(x+17,y+17,4,32),border_radius=2)
-        titulo=self.font_xl.render(self.popup['titulo'],True,C_ACCENT)
+        alerta=self.popup.get('tipo')=='aviso_ruptura'
+        acento=C_DANGER if alerta else C_ACCENT
+        self._tarjeta((x,y,w,h),(45,29,42) if alerta else (20,36,55),
+                      (190,91,95) if alerta else (96,147,164),16)
+        pygame.draw.rect(self.screen,acento,(x+17,y+17,4,32),border_radius=2)
+        titulo=self.font_xl.render(self.popup['titulo'],True,acento)
         self.screen.blit(titulo,(x+35,y+18))
         pygame.draw.line(self.screen,C_PANEL_BORDER,(x+20,y+62),(x+w-20,y+62),1)
         txt_y=y+75

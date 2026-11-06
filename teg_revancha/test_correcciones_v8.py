@@ -122,12 +122,12 @@ class PantallaPactosV8(unittest.TestCase):
         renderer=renderer_mod.Renderer.__new__(renderer_mod.Renderer)
         renderer.pais_seleccionado=None
         renderer.pais_objetivo=None
-        popup=[]
-        renderer.mostrar_popup=lambda *args:popup.append(args)
         renderer.mostrar_pactos(j)
-        self.assertEqual(popup[0][0],'DIPLOMACIA Y PACTOS')
-        self.assertIn('MUNDIAL',popup[0][1])
-        self.assertIn('Todo el mundo',popup[0][1])
+        self.assertEqual(renderer.popup['titulo'],'DIPLOMACIA Y PACTOS')
+        self.assertEqual(renderer.popup['tipo'],'resumen_pactos')
+        filas=[f for grupo in renderer.popup['secciones'] for f in grupo['filas']]
+        self.assertTrue(any('MUNDIAL' in f['titulo'] and
+                            'Protección mundial' in f['detalle'] for f in filas))
 
     def test_descripcion_todas_las_modalidades_y_rupturas(self):
         j=JuegoTEG(4)

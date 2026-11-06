@@ -22,6 +22,9 @@ class DiplomaciaMixin:
         self._ataque_conjunto_en_curso = False
         self.conquistas_colectivas = 0
         self._ultimo_evento_pactos = ''
+        # Avisos pendientes para el humano. Se generan en el motor (también
+        # cuando rompe un pacto la IA), no a partir de mensajes del historial.
+        self.avisos_pactos = []
 
     def ejercitos_de(self, pais, idx):
         if pais not in self.tablero:
@@ -168,6 +171,11 @@ class DiplomaciaMixin:
         # incluye el siguiente turno cuando el actual ya ocurrió.
         p['turno_liberacion']=(otro,self.turnos_terminados[otro]+1)
         self.log(f'RUPTURA ANUNCIADA #{pacto_id} por {self.jugadores[por_idx].color_nombre}: vigente hasta fin del próximo turno de {self.jugadores[otro].color_nombre}')
+        if otro == 0 and por_idx != 0:
+            self.avisos_pactos.append({
+                'tipo':'ruptura_anunciada','pacto_id':pacto_id,
+                'por_idx':por_idx,'descripcion':self.descripcion_pacto(p),
+                'turno_liberacion':p['turno_liberacion']})
         return True
 
     def _cierre_turno_diplomatico(self, jugador_idx):
@@ -176,6 +184,13 @@ class DiplomaciaMixin:
             if p['turno_liberacion'] and p['turno_liberacion'][0]==jugador_idx and self.turnos_terminados[jugador_idx]>=p['turno_liberacion'][1]:
                 p['activo']=False
                 self.log(f'PACTO #{p["id"]} finalizado tras el turno de {self.jugadores[jugador_idx].color_nombre}')
+                # Avisa también al expirar la protección, no solo cuando el
+                # rival anuncia la ruptura. Ya no es seguro confiar en el pacto.
+                if 0 in p['jugadores'] and p['ruptura_por'] not in (None,0):
+                    self.avisos_pactos.append({
+                        'tipo':'ruptura_efectiva','pacto_id':p['id'],
+                        'por_idx':p['ruptura_por'],'descripcion':self.descripcion_pacto(p)})
+
         for z in self.zonas_internacionales:
             if not z['activa'] or jugador_idx not in z['jugadores']:continue
             if z['pendiente']==jugador_idx:

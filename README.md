@@ -29,6 +29,7 @@
 - **Canjes individuales:** primer canje +6, segundo +10, tercero +15 y siguientes incrementos de 5; los canjes de otros jugadores no alteran el valor del propio. Las tarjetas continentales son de un solo uso por jugador y se revocan si pierde el continente antes de utilizarlas.
 - **Mazo de 50 situaciones:** Combate clásico, Nieve, Crisis, Viento a favor, Refuerzos extras, Fronteras abiertas, Fronteras cerradas y Descansos por color. Las situaciones comienzan a extraerse a partir de la **segunda ronda**.
 - **Sistema de pactos vinculantes:** acuerdos de no agresión, zonas internacionales, agresiones conjuntas y territorios en condominio, con negociación entre el humano y los bots.
+- **Diplomacia legible y alertas:** la tecla **P** abre pactos agrupados por rupturas anunciadas, acuerdos propios, pactos entre rivales, zonas internacionales, ataques conjuntos y pactos propios finalizados. Muestra el color de cada firmante y permite desplazarse con la rueda o RePág/AvPág. Si un bot rompe un pacto con vos, aparece una alerta obligatoria; otra alerta indica cuándo la protección deja de regir, al terminar tu siguiente turno.
 - **Interfaz visual de tres columnas:** panel de eventos a la izquierda, tablero despejado en el centro y acciones y estado a la derecha; menú contextual con clic derecho, historial, misiones ilustradas, misiles e incorporación diferenciada por continente.
 - **Animaciones opcionales antes de comenzar:** ataques y conquistas (con transición visual del color del defensor al ganador), incorporación de ejércitos/misiles y reagrupamientos. Avisos no modales de canjes de bots en el panel izquierdo. Las rutas, halos y proyectiles de ataque permanecen visibles sin carteles que tapen las fichas.
 - **Bloqueos territoriales:** las guarniciones rodeadas bajo las condiciones del reglamento no pueden recibir refuerzos, pero conservan la posibilidad de atacar.
@@ -116,7 +117,7 @@ Desde la carpeta `teg_revancha`:
 python -m unittest discover -v -p "test_*.py"
 ```
 
-La versión actual incluye **126 pruebas automatizadas** que comprueban, entre otras cosas, reglas de turnos, conexiones, pactos, misiles, tarjetas, canjes, bloqueos, conquistas y comportamiento de las animaciones. Las pruebas automatizadas no sustituyen las partidas manuales para detectar problemas visuales o de interacción.
+La versión actual incluye **258 pruebas automatizadas** que comprueban, entre otras cosas, reglas de turnos, conexiones, pactos, misiles, tarjetas, canjes, bloqueos, conquistas y comportamiento de las animaciones. Las pruebas automatizadas no sustituyen las partidas manuales para detectar problemas visuales o de interacción.
 
 ### Nota sobre «capitales»
 
