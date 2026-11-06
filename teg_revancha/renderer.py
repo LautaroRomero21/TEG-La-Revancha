@@ -1401,29 +1401,112 @@ class Renderer:
         self.menu_contextual=None
         return respuesta
 
+    @staticmethod
+    def _secciones_resumen_pactos(juego):
+        """Agrupar y ordenar sin truncar pactos: rupturas, propios y rivales."""
+        titulos={'pais':'NO AGRESIÓN ENTRE PAÍSES','continente':'NO AGRESIÓN CONTINENTAL',
+                 'frontera':'NO AGRESIÓN ENTRE CONTINENTES','mundial':'NO AGRESIÓN MUNDIAL',
+                 'condominio':'TREGUA DEL CONDOMINIO'}
+        def fila_pacto(p,estado):
+            tipo=p['tipo']
+            if tipo=='pais':detalle='Países: '+' / '.join(p.get('paises') or ())
+            elif tipo=='continente':detalle='Continente: '+str(p.get('continente') or '-')
+            elif tipo=='frontera':detalle='Continentes: '+' / '.join(p.get('continentes') or ())
+            elif tipo=='mundial':detalle='Protección mundial'
+            elif tipo=='condominio':detalle='País compartido: '+str(p.get('pais') or '-')
+            else:detalle=tipo
+            if estado=='RUPTURA ANUNCIADA' and p.get('turno_liberacion'):
+                otro,_=p['turno_liberacion']
+                detalle+=f'  |  Protege hasta terminar turno de {juego.jugadores[otro].color_nombre}'
+            return {'titulo':f'#{p["id"]} · {titulos.get(tipo,tipo.upper())}',
+                    'detalle':detalle,'jugadores':p['jugadores'],'estado':estado}
+        activos=list(juego.pactos_vigentes())
+        rotos=[p for p in activos if p.get('ruptura_por') is not None]
+        sanos=[p for p in activos if p.get('ruptura_por') is None]
+        propios=[p for p in sanos if 0 in p['jugadores']]
+        ajenos=[p for p in sanos if 0 not in p['jugadores']]
+        terminados=[p for p in juego.pactos if not p['activo'] and 0 in p['jugadores']]
+        grupos=[]
+        def agregar(nombre,filas):
+            if filas:grupos.append({'titulo':nombre,'filas':filas})
+        agregar('RUPTURAS ANUNCIADAS · TODAVÍA PROTEGEN',
+                [fila_pacto(p,'RUPTURA ANUNCIADA') for p in sorted(
+                    rotos,key=lambda p:(0 not in p['jugadores'],-p['id']))])
+        agregar('PACTOS VIGENTES CON VOS',
+                [fila_pacto(p,'VIGENTE') for p in sorted(
+                    propios,key=lambda p:(next(i for i in p['jugadores'] if i!=0),p['id']))])
+        agregar('PACTOS ENTRE LOS DEMÁS COLORES',
+                [fila_pacto(p,'VIGENTE') for p in sorted(ajenos,key=lambda p:(p['jugadores'],p['id']))])
+        agregar('ZONAS INTERNACIONALES',[
+            {'titulo':f'#{z["id"]} · ZONA INTERNACIONAL',
+             'detalle':f'{z["pais"]} · Próximo: {juego.jugadores[z["pendiente"]].color_nombre}',
+             'jugadores':z['jugadores'],'estado':'ACTIVA'}
+            for z in juego.zonas_internacionales if z['activa']])
+        agregar('ATAQUES CONJUNTOS',[
+            {'titulo':f'#{ag["id"]} · ATAQUE CONJUNTO',
+             'detalle':f'{ag["destino"]} · Ronda {ag["ronda"]} · {ag["estado"]}',
+             'jugadores':ag['jugadores'],'estado':'PROGRAMADO'}
+            for ag in juego.agresiones_pendientes if ag['estado'] in ('pendiente','pausada')])
+        agregar('TUS PACTOS FINALIZADOS RECIENTEMENTE',[
+            fila_pacto(p,'FINALIZADO')
+            for p in sorted(terminados,key=lambda p:p['id'],reverse=True)[:6]])
+        if not grupos:
+            grupos=[{'titulo':'SIN PACTOS REGISTRADOS',
+                     'filas':[{'titulo':'No hay acuerdos para mostrar',
+                               'detalle':'Elegí origen y destino para proponer un pacto.',
+                               'jugadores':(),'estado':'INFORMACIÓN'}]}]
+        return grupos
+
     def mostrar_pactos(self,juego):
-        """Acuerdos públicos, propuestas y rupturas desde el tablero."""
-        a=0  # Los pactos se pueden consultar y romper fuera de turno.
-        origen=self.pais_seleccionado
-        destino=self.pais_objetivo
-        vigente=[juego.descripcion_pacto(p) for p in juego.pactos_vigentes()]
-        vigente += [f'ZONA #{z["id"]} · {z["pais"]}' for z in juego.zonas_internacionales if z['activa']]
-        vigente += [f'AGRESIÓN #{ag["id"]} · {ag["destino"]} · {ag["estado"]}' for ag in juego.agresiones_pendientes if ag['estado'] in ('pendiente','pausada')]
-        texto=('PACTOS VIGENTES:\n'+'\n'.join(vigente[-10:]) if vigente else 'No hay pactos vigentes.')
+        """Ventana P: visor ordenado por estado y participantes, con desplazamiento."""
+        origen,destino=self.pais_seleccionado,self.pais_objetivo
         otro=(juego.tablero[destino]['propietario'] if destino in juego.tablero else None)
-        if origen in juego.tablero and destino in juego.tablero and juego.es_propietario(origen,a) and otro is not None and otro!=a:
-            texto+=f'\n\nSelección: {origen} -> {destino} ({juego.jugadores[otro].color_nombre}).'
+        if (origen in juego.tablero and destino in juego.tablero
+                and juego.es_propietario(origen,0) and otro is not None and otro!=0):
+            contexto=f'SELECCIÓN: {origen} → {destino} ({juego.jugadores[otro].color_nombre})'
             botones=[('Entre países','pacto_pais'),('Continente','pacto_continente'),
                      ('Entre continentes','pacto_frontera'),('Mundial','pacto_mundial'),
                      ('Zona internac.','pacto_zona'),('Ataque conjunto','pacto_agresion'),
-                     ('Romper pacto','pacto_romper_lista'),('Asaltos','pacto_asaltos'),('Cerrar','ok')]
+                     ('Romper pacto','pacto_romper_lista'),('Asaltos','pacto_asaltos'),
+                     ('Cerrar','ok')]
         else:
-            texto+='\n\nPara acordar: seleccioná tu país de origen y el país destino; luego P.'
-            botones=[('No agresión mundial','pacto_mundial_lista'),('Romper pacto','pacto_romper_lista'),('Asaltos','pacto_asaltos'),('Cerrar','ok')]
-        if origen in juego.tablero and destino in juego.tablero and not juego._ataque_permitido(origen,destino,actor_idx=a):
+            contexto='Para negociar: elegí país de origen y destino; luego presioná P.'
+            botones=[('No agresión mundial','pacto_mundial_lista'),
+                     ('Romper pacto','pacto_romper_lista'),('Asaltos','pacto_asaltos'),
+                     ('Cerrar','ok')]
+        if (origen in juego.tablero and destino in juego.tablero and
+                not juego._ataque_permitido(origen,destino,actor_idx=0)):
             botones=[b for b in botones if b[1]!='pacto_agresion']
-            texto+='\nNo se permite ataque conjunto desde ese origen con la situación o pacto vigente.'
-        self.mostrar_popup('DIPLOMACIA Y PACTOS',texto,botones)
+            contexto+='  |  Ataque conjunto no permitido.'
+        self.popup={'tipo':'resumen_pactos','titulo':'DIPLOMACIA Y PACTOS',
+                    'secciones':self._secciones_resumen_pactos(juego),
+                    'contexto':contexto,'botones':botones,'scroll':0}
+        self.menu_contextual=None
+
+    def mostrar_alerta_ruptura(self,juego,aviso):
+        """Alerta obligatoria cuando un bot anuncia o concreta una ruptura."""
+        color=juego.jugadores[aviso['por_idx']].color_nombre
+        detalle=aviso['descripcion']
+        if aviso['tipo']=='ruptura_anunciada':
+            titulo='¡RUPTURA DE PACTO ANUNCIADA!'
+            mensaje=(f'{color} anunció la ruptura del pacto #{aviso["pacto_id"]}.\n'
+                     f'{detalle}\n\n'
+                     'La protección SIGUE VIGENTE hasta que TERMINE TU PRÓXIMO TURNO.\n'
+                     'Después de ese turno podrá atacarte. Prepará tus fronteras.')
+        else:
+            titulo='¡PACTO FINALIZADO: SIN PROTECCIÓN!'
+            mensaje=(f'El pacto #{aviso["pacto_id"]} con {color} ya terminó.\n'
+                     f'{detalle}\n\n'
+                     'ATENCIÓN: el rival ya puede atacarte donde antes había protección.')
+        self.mostrar_popup(titulo,mensaje,[('ENTENDIDO','ok')])
+        self.popup['tipo']='aviso_ruptura'
+        self.popup['obligatorio']=True
+        self.menu_contextual=None
+
+    def desplazar_pactos(self,delta):
+        if self.popup and self.popup.get('tipo')=='resumen_pactos':
+            maximo=self.popup.get('scroll_max',0)
+            self.popup['scroll']=max(0,min(maximo,self.popup.get('scroll',0)+delta*60))
 
     def mostrar_historial(self, juego):
         """Listado ampliado; útil con 5-6 participantes cuando el panel se llena."""
