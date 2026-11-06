@@ -155,6 +155,32 @@ class AtaqueParaConseguirTarjeta(unittest.TestCase):
         self.assertEqual(accion['accion'],'atacar')
         self.assertEqual((accion['pais'],accion['destino']),('Nigeria','Angola'))
 
+    def test_conquista_desesperada_habilita_una_tarjeta_real(self):
+        j=partida_critica(tropas=3,defensores=1)
+        j.fase=FASE_ATACAR
+        with patch.object(j.ia_dificil,'diplomacia',return_value=None):
+            # Dos dados del atacante en 6 y uno del defensor en 1.
+            with patch('logic.random.randint',side_effect=[6,6,1]):
+                movimiento=j.paso_bot()
+        self.assertTrue(movimiento['dados']['conquisto'])
+        self.assertEqual(j.conquistas_turno,1)
+        self.assertEqual(j.tablero['Angola']['propietario'],1)
+        j.fase=FASE_TARJETA
+        self.assertTrue(j.puede_solicitar_tarjeta())
+        cantidad_antes=len(j.jugadores[1].tarjetas)
+        respuesta=j.paso_bot()
+        self.assertEqual(respuesta['accion'],'tarjeta')
+        self.assertEqual(len(j.jugadores[1].tarjetas),cantidad_antes+1)
+
+    def test_tercer_canje_no_concede_tarjeta_con_una_conquista(self):
+        j=partida_critica(tropas=3,defensores=1)
+        j.fase=FASE_TARJETA
+        j.jugadores[1].canjes_realizados=3
+        j.conquistas_turno=1
+        self.assertFalse(j.puede_solicitar_tarjeta())
+        j.conquistas_turno=2
+        self.assertTrue(j.puede_solicitar_tarjeta())
+
     def test_el_modo_normal_sigue_independiente(self):
         j=JuegoTEG(4,orden_inicial=[1,0,2,3],dificultad='Normal')
         with patch.object(j.ia_dificil.remontada,'plan_refuerzo',
