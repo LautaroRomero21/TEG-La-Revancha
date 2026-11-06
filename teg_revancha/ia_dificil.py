@@ -10,6 +10,7 @@ from itertools import combinations_with_replacement
 from math import factorial
 import random
 from estrategia_turnos import LecturaDeTurnos
+from estrategia_remontada import PlanRemontada
 
 
 def _tiradas(n):
@@ -76,6 +77,7 @@ class EstrategiaDificil:
         self.j=juego
         self._max_reagrupes=4
         self.turnos=LecturaDeTurnos(juego)
+        self.remontada=PlanRemontada(juego,self,probabilidad_conquista)
         # Colocaciones de cada bot en cada vuelta inicial, independientes del
         # contador global, y sin filtraciones de la distribución rival.
         self._colocaciones_preparacion={}
@@ -297,6 +299,15 @@ class EstrategiaDificil:
         continentes=[c for c,n in juego.refuerzos_continente.items() if n>0]
         if continentes:paises=[p for p in paises if juego.tablero[p]['continente'] in continentes]
         if not paises:raise RuntimeError('IA Difícil: no hay país válido para incorporar')
+        # Un bot casi eliminado no debe reforzar siempre el mayor peligro:
+        # busca un frente concreto donde conquistar países le dé tarjetas.
+        plan=self.remontada.plan_refuerzo(jugador,paises)
+        if plan:
+            pais,cantidad,destino=plan
+            if juego.incorporar(pais,cantidad):
+                juego.bot_refuerzos_por_pais[pais]=juego.bot_refuerzos_por_pais.get(pais,0)+cantidad
+                return {'texto':f'{jugador.nombre} (Difícil): prepara remontada {pais} +{cantidad} hacia {destino}',
+                        'accion':'incorporar','pais':pais,'cantidad':cantidad}
         ctx=self.contexto(jugador)
         evaluados=[]
         ventana=self.turnos.ventana(jugador)
@@ -425,7 +436,11 @@ class EstrategiaDificil:
         if acuerdo:return acuerdo
         if juego.situacion!=f'Descanso {jugador.color_nombre}':
             if juego.bot_ataques_turno<50:
-                candidato=self.candidato_ataque(jugador)
+                # Una conquista puede desbloquear el robo de tarjeta que
+                # el jugador debilitado necesita para remontar. Se admite
+                # un riesgo moderado, no ataques con probabilidad ínfima.
+                candidato=(self.remontada.candidato_ataque(jugador)
+                           or self.candidato_ataque(jugador))
                 if candidato:
                     _,_,origen,destino=candidato
                     resultado=juego.atacar(origen,destino)
