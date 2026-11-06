@@ -632,6 +632,14 @@ def pantalla_victoria(renderer, juego, ganador_nombre):
             if event.type in (pygame.QUIT,pygame.KEYDOWN,pygame.MOUSEBUTTONDOWN):
                 running=False
 
+def mostrar_aviso_pacto_pendiente(juego,renderer):
+    """El bot no podrá continuar hasta que el humano lea la alerta diplomática."""
+    if renderer.popup or renderer.vista_tarjetas or not juego.avisos_pactos:
+        return False
+    renderer.mostrar_alerta_ruptura(juego,juego.avisos_pactos.pop(0))
+    return True
+
+
 def main():
     pygame.init()
     renderer = Renderer()
@@ -649,6 +657,9 @@ def main():
     siguiente_paso_bot = pygame.time.get_ticks() + 1100
     situacion_anunciada = 0
     while running:
+        # Una ruptura de pacto tiene prioridad: no es un simple mensaje del
+        # historial. El popup bloquea al bot hasta que el humano lo acepte.
+        mostrar_aviso_pacto_pendiente(juego,renderer)
         # El aviso se muestra ANTES de cualquier acción de la ronda (incluido el bot).
         if debe_mostrar_situacion(juego, situacion_anunciada, renderer):
             renderer.mostrar_popup_situacion(juego)
@@ -684,6 +695,9 @@ def main():
                 elif event.key == pygame.K_p:
                     if not renderer.popup and not renderer.vista_tarjetas:
                         renderer.mostrar_pactos(juego)
+                elif (renderer.popup and renderer.popup.get('tipo')=='resumen_pactos'
+                      and event.key in (pygame.K_PAGEUP,pygame.K_PAGEDOWN)):
+                    renderer.desplazar_pactos(-3 if event.key==pygame.K_PAGEUP else 3)
                 elif event.key == pygame.K_h:
                     if not renderer.popup and not renderer.vista_tarjetas:
                         renderer.mostrar_historial(juego)
@@ -723,9 +737,11 @@ def main():
                                 renderer.mostrar_popup('CANJE INVÁLIDO','Revisá la combinación elegida.')
                     continue
 
-                # Popup primero
+                # Popup primero: la rueda desplaza solo el visor de pactos.
                 if renderer.popup:
-                    if (renderer.popup.get('tipo') == 'pacto_propuesta' and
+                    if renderer.popup.get('tipo')=='resumen_pactos' and event.button in (4,5):
+                        renderer.desplazar_pactos(-1 if event.button==4 else 1)
+                    elif (renderer.popup.get('tipo') == 'pacto_propuesta' and
                         renderer.MAP_X <= pos[0] < renderer.MAP_X + renderer.MAP_W and event.button == 1):
                         # El mapa se puede consultar durante la negociación;
                         # ningún clic inicia ataques, refuerzos o turnos.
