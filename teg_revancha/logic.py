@@ -506,7 +506,7 @@ class JuegoTEG(DiplomaciaMixin):
         if self.situacion=='Fronteras abiertas' and misma:return False
         return True
 
-    def atacar(self, desde, hacia, n_dados_atk=3, actor_idx=None, conjunto=False, defensor_idx=None):
+    def atacar(self, desde, hacia, n_dados_atk=3, actor_idx=None, conjunto=False, defensor_idx=None, traslado_bot=None):
         actor=self.turno_idx if actor_idx is None else actor_idx
         if hacia in self.condominios:
             return self.atacar_condominio(desde,hacia,defensor_idx=defensor_idx,actor_idx=actor)
@@ -567,7 +567,16 @@ class JuegoTEG(DiplomaciaMixin):
                 if cumplir_zona:
                     self._transferir_conquista(desde,hacia,1)
                 elif self.jugadores[actor].es_bot or max_pasar==1:
-                    self._transferir_conquista(desde,hacia,max_pasar)
+                    # Solo los bots de dificultad Difícil pueden planificar
+                    # una ocupación mínima para obtener tarjeta sin regalar
+                    # tropas del país de origen. Normal conserva el traslado
+                    # automático de siempre; los ataques conjuntos también.
+                    mover=max_pasar
+                    if (self.dificultad=='Dificil' and self.jugadores[actor].es_bot
+                            and not conjunto and type(traslado_bot) is int
+                            and 1<=traslado_bot<=max_pasar):
+                        mover=traslado_bot
+                    self._transferir_conquista(desde,hacia,mover)
                 else:
                     self.conquista_pendiente={'desde':desde,'hacia':hacia,
                                               'max_pasar':max_pasar,'disponibles':disponibles}
