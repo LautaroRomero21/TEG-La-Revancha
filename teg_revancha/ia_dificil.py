@@ -11,6 +11,7 @@ from math import factorial
 import random
 from estrategia_turnos import LecturaDeTurnos
 from estrategia_remontada import PlanRemontada
+from estrategia_incursiones import IncursionPorTarjeta
 
 
 def _tiradas(n):
@@ -78,6 +79,7 @@ class EstrategiaDificil:
         self._max_reagrupes=4
         self.turnos=LecturaDeTurnos(juego)
         self.remontada=PlanRemontada(juego,self,probabilidad_conquista)
+        self.incursiones=IncursionPorTarjeta(juego,self,probabilidad_conquista)
         # Colocaciones de cada bot en cada vuelta inicial, independientes del
         # contador global, y sin filtraciones de la distribución rival.
         self._colocaciones_preparacion={}
@@ -436,17 +438,32 @@ class EstrategiaDificil:
         if acuerdo:return acuerdo
         if juego.situacion!=f'Descanso {jugador.color_nombre}':
             if juego.bot_ataques_turno<50:
-                # Una conquista puede desbloquear el robo de tarjeta que
-                # el jugador debilitado necesita para remontar. Se admite
-                # un riesgo moderado, no ataques con probabilidad ínfima.
-                candidato=(self.remontada.candidato_ataque(jugador)
-                           or self.candidato_ataque(jugador))
+                # En Difícil no toda conquista busca sostener un territorio.
+                # Una incursión puede valer solo por habilitar la tarjeta:
+                # ocupamos con 1 ficha y preservamos la guarnición de origen,
+                # aunque otro rival recapture después esa ficha. No regalar
+                # ejércitos ni hacer esto cuando la tarjeta ya está asegurada.
+                candidato_general=(self.remontada.candidato_ataque(jugador)
+                                   or self.candidato_ataque(jugador))
+                incursion=self.incursiones.candidato(jugador)
+                if len(juego.paises_exclusivos(jugador.idx))>=44:
+                    incursion=None  # Cerca de 45 países es preferible ganar.
+                elegir_incursion=bool(incursion and (
+                    candidato_general is None
+                    or incursion[2:4]==candidato_general[-2:]
+                    or incursion[0]>=candidato_general[0]+5))
+                candidato=incursion if elegir_incursion else candidato_general
                 if candidato:
-                    _,_,origen,destino=candidato
-                    resultado=juego.atacar(origen,destino)
+                    _,_,origen,destino=candidato[:4]
+                    if elegir_incursion:
+                        resultado=juego.atacar(origen,destino,traslado_bot=1)
+                    else:
+                        resultado=juego.atacar(origen,destino)
                     juego.bot_ataques_turno+=1
                     if resultado['ok']:
-                        return {'texto':f'{jugador.nombre} calcula y ataca {origen}->{destino}',
+                        detalle=('incursiona por tarjeta' if elegir_incursion
+                                 else 'calcula y ataca')
+                        return {'texto':f'{jugador.nombre} {detalle} {origen}->{destino}',
                                 'accion':'atacar','pais':origen,'destino':destino,'dados':resultado}
             # Bombardear un objetivo que tenga un valor estratégico real.
             ctx=self.contexto(jugador)
