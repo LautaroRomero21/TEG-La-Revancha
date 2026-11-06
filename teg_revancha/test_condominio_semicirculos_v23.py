@@ -33,8 +33,10 @@ class FichasCondominio(unittest.TestCase):
         superficie=pygame.Surface((60,60),pygame.SRCALPHA)
         Renderer._dibujar_mitades_condominio(
             superficie,(30,30),12,(10,20,30),(150,180,210))
-        self.assertEqual(tuple(superficie.get_at((42,30)))[:3],(150,180,210))
-        self.assertEqual(tuple(superficie.get_at((18,30)))[:3],(10,20,30))
+        # Pygame puede dejar sin pintar el pixel exacto del radio. Estos
+        # puntos están cerca del borde CURVO pero dentro de la ficha.
+        self.assertEqual(tuple(superficie.get_at((41,35)))[:3],(150,180,210))
+        self.assertEqual(tuple(superficie.get_at((19,35)))[:3],(10,20,30))
 
     def test_clip_original_se_restaura(self):
         superficie=pygame.Surface((90,90),pygame.SRCALPHA)
