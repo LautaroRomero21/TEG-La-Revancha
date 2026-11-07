@@ -66,6 +66,11 @@ class IncursionPorTarjeta:
                 if defensor is None or defensor==jugador.idx:continue
                 defensa=j.ejercitos_de(destino,defensor)
                 prob,bajas=self.probabilidad(tropas,defensa,j.situacion)
+                # Conseguir una tarjeta no justifica romper un cerco valioso
+                # retirando el último guardia de una frontera.
+                if self.estrategia.cercos.compromete(
+                        origen,destino,jugador,bajas,traslado=1):
+                    continue
                 if prob<.85:continue
                 origen_restante=max(1,int(tropas-bajas-1))
                 if origen_restante<2:continue
