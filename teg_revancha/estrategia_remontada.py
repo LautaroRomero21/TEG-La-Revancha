@@ -143,6 +143,9 @@ class PlanRemontada:
             doble = estado['faltan'] >= 2 and self._dos_opciones(origen, jugador)
             for destino, defensa in self._objetivos_asequibles(origen, jugador):
                 p, perdidas = self.probabilidad(tropas, defensa, juego.situacion)
+                if self.estrategia.cercos.compromete(
+                        origen,destino,jugador,perdidas,traslado=3):
+                    continue
                 if p < umbral:
                     continue
                 # Se conservan ejércitos propios en el origen al conquistar.

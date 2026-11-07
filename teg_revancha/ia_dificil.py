@@ -12,6 +12,7 @@ import random
 from estrategia_turnos import LecturaDeTurnos
 from estrategia_remontada import PlanRemontada
 from estrategia_incursiones import IncursionPorTarjeta
+from estrategia_cercos import EstrategiaCerco
 
 
 def _tiradas(n):
@@ -80,6 +81,7 @@ class EstrategiaDificil:
         self.turnos=LecturaDeTurnos(juego)
         self.remontada=PlanRemontada(juego,self,probabilidad_conquista)
         self.incursiones=IncursionPorTarjeta(juego,self,probabilidad_conquista)
+        self.cercos=EstrategiaCerco(juego,self)
         # Colocaciones de cada bot en cada vuelta inicial, independientes del
         # contador global, y sin filtraciones de la distribución rival.
         self._colocaciones_preparacion={}
@@ -156,6 +158,11 @@ class EstrategiaDificil:
         if origen in juego.condominios and enemigo in juego.condominios[origen]:
             return None
         p,bajas=probabilidad_conquista(tropas,defensa,juego.situacion)
+        # Una ofensiva aparentemente rentable puede deshacer un bloqueo si
+        # sale de uno de sus países guardianes con apenas 2 ejércitos.
+        traslado_estimado=min(3,max(1,int(tropas-bajas-1)))
+        if self.cercos.compromete(origen,destino,jugador,bajas,traslado_estimado):
+            return None
         urgencia=ctx['paises'][enemigo]>=43
         ventana=self.turnos.ventana(jugador)
         riesgo_temprano=ventana['fraccion_pendiente']
@@ -310,6 +317,16 @@ class EstrategiaDificil:
                 juego.bot_refuerzos_por_pais[pais]=juego.bot_refuerzos_por_pais.get(pais,0)+cantidad
                 return {'texto':f'{jugador.nombre} (Difícil): prepara remontada {pais} +{cantidad} hacia {destino}',
                         'accion':'incorporar','pais':pais,'cantidad':cantidad}
+        # Si un país enemigo tiene todos los vecinos propios, poner UNA ficha
+        # en el guardia que quedó con 1 puede terminar el bloqueo completo.
+        # Solo si hay fondos legales y el coste/beneficio lo justifica.
+        cerco=self.cercos.refuerzo(jugador,paises)
+        if cerco:
+            pais,cantidad,blanco=cerco
+            if juego.incorporar(pais,cantidad):
+                juego.bot_refuerzos_por_pais[pais]=juego.bot_refuerzos_por_pais.get(pais,0)+cantidad
+                return {'texto':f'{jugador.nombre} (Difícil): +{cantidad} en {pais} para cercar {blanco}',
+                        'accion':'incorporar','pais':pais,'cantidad':cantidad}
         ctx=self.contexto(jugador)
         evaluados=[]
         ventana=self.turnos.ventana(jugador)
@@ -445,6 +462,13 @@ class EstrategiaDificil:
                 # ejércitos ni hacer esto cuando la tarjeta ya está asegurada.
                 candidato_general=(self.remontada.candidato_ataque(jugador)
                                    or self.candidato_ataque(jugador))
+                # Un territorio propio bloqueado no puede recibir ejércitos:
+                # si tiene fuerzas suficientes, priorizar abrir una brecha
+                # contra el vecino más accesible.
+                escape=self.cercos.escape(jugador,probabilidad_conquista)
+                if escape and (candidato_general is None or
+                               escape[0]>candidato_general[0]+5):
+                    candidato_general=escape
                 incursion=self.incursiones.candidato(jugador)
                 if len(juego.paises_exclusivos(jugador.idx))>=44:
                     incursion=None  # Cerca de 45 países es preferible ganar.
@@ -490,6 +514,16 @@ class EstrategiaDificil:
             juego.avanzar_fase()
             return {'texto':f'{jugador.nombre}: revisa tarjetas'}
         juego.bot_reagrupes_turno+=1
+        # Completar un cerco con tropas existentes es mejor que abandonar un
+        # vecino con 1 y gastar un refuerzo nuevo en la próxima ronda.
+        maniobra=self.cercos.reagrupe(jugador)
+        if maniobra:
+            origen,destino,cantidad,blanco=maniobra
+            if juego.reagrupar(origen,destino,cantidad):
+                return {'texto':f'{jugador.nombre} completa cerco de {blanco}: '
+                                f'{origen}->{destino} +{cantidad}',
+                        'accion':'reagrupar','pais':origen,'destino':destino,
+                        'cantidad':cantidad}
         propios=set(juego.paises_exclusivos(jugador.idx))
         ctx=self.contexto(jugador)
         frentes=[p for p in propios if self._frentes(p,jugador)]
@@ -511,7 +545,8 @@ class EstrategiaDificil:
             reserva=max(1,int(mayor*.9)+2) if rivales else 1
             # Nunca vaciar una retaguardia aparentemente segura si los
             # siguientes jugadores pueden atacarla antes de que respondamos.
-            reserva=max(reserva,self.turnos.reserva(origen,jugador))
+            reserva=max(reserva,self.turnos.reserva(origen,jugador),
+                        self.cercos.reserva(origen,jugador))
             disponibles=tropas-reserva-recibidos
             if disponibles<1:continue
             for destino in juego.tablero[origen]['fronteras']:
