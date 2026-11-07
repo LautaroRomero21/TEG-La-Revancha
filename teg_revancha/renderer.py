@@ -1252,21 +1252,8 @@ class Renderer:
             pygame.draw.circle(self.screen,c,badge,12)
             number = self.font_md.render(str(i+1),True,(8,18,28))
             self.screen.blit(number,number.get_rect(center=badge))
-            # Etiqueta desplazada de forma distinta para evitar colisiones
-            # cuando las fronteras están muy cerca (p. ej. Polonia-Albania).
-            label = f'{i+1}  {pais}'
-            ancho = min(245,self.font_md.size(label)[0]+22)
-            tx = max(self.MAP_X+7,min(self.MAP_X+self.MAP_W-ancho-7, cx-ancho//2))
-            ty = cy-78 if i % 2 == 0 else cy+41
-            if i == 2:
-                ty = cy+54
-            ty = max(72,min(self.MAP_H-65,ty))
-            rect = pygame.Rect(tx,ty,ancho,29)
-            pygame.draw.rect(self.screen,(8,24,40),rect,border_radius=7)
-            pygame.draw.rect(self.screen,c,rect,2,border_radius=7)
-            self._texto(label,tx+11,ty+6,self.font_md,C_TEXT,max_ancho=ancho-18)
-            extremo = (max(tx+12,min(cx,tx+ancho-12)),ty+29 if ty<cy else ty)
-            pygame.draw.line(self.screen,c,(cx,cy-30 if ty<cy else cy+30),extremo,2)
+            # Sólo resaltado circular y número. Sin carteles con nombres
+            # ni líneas guía que tapen países vecinos durante los pactos.
 
         # Información del territorio bajo el cursor o seleccionado con clic.
         mouse = pygame.mouse.get_pos()
