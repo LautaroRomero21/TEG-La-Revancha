@@ -157,7 +157,7 @@ class EstrategiaCerco:
                     puntos=self._prioridad(objetivo,jugador)
                     opciones.append((puntos, soldados-reserva-recibidos,
                                      origen,destino,faltan,objetivo['pais']))
-        return max(opciones) [2:] if opciones else None
+        return max(opciones)[2:] if opciones else None
 
     def escape(self, jugador, probabilidad):
         """Romper un encierro propio con un ataque razonable contra el vecino débil.
