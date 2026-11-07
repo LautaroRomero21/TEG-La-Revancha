@@ -1,3 +1,16 @@
+# IA Difícil: estrategia de cercos (7/11/2026)
+
+- Nuevo módulo de planificación de cercos, exclusivo para la dificultad Difícil.
+- Detecta los territorios que pueden bloquearse bajo la regla de al menos tres vecinos propios y dos ejércitos en cada uno.
+- Prioriza colocar la ficha que falta cuando el bloqueo es útil y legal; respeta refuerzos continentales y necesidades estratégicas.
+- Durante el reagrupamiento protege las dos fichas mínimas y puede completar un bloqueo trasladando una ficha desde un territorio vecino.
+- Al evaluar otras acciones, conserva las guarniciones necesarias para mantener los bloqueos ya logrados.
+- Cuando el propio bot queda bloqueado, considera recuperar movilidad mediante una conquista viable.
+- El motor de reglas y la dificultad Normal no cambian.
+- Se agregaron 16 pruebas en `test_cercos_ia_v27.py`. GitHub Actions aprobó 274 pruebas en total.
+
+---
+
 # Rediseño del visor de pactos y alertas de ruptura (6/11/2026)
 
 - **Tecla P:** el listado ya no es una cadena blanca de 10 acuerdos. Ahora presenta todos los pactos vigentes, agrupados por **rupturas anunciadas**, **pactos con el humano**, **pactos entre otros colores**, **zonas internacionales**, **ataques conjuntos** y **pactos del humano ya finalizados** (últimos seis), con participantes identificados mediante sus colores y estados diferenciados.
