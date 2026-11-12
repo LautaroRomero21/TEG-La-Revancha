@@ -1,3 +1,14 @@
+# Difícil: última conquista para cerrar un continente (noviembre de 2026)
+
+- Se corrigió la evaluación estratégica que podía descartar el ataque desde Filipinas (75 ejércitos verdes) hacia Tonga (13 azules), aun siendo el último país necesario para controlar Oceanía.
+- El cálculo probabilístico de dados ya no limita artificialmente a 36 los ejércitos de ataques grandes: ahora utiliza la cantidad real hasta 96; continúa acotando valores superiores por rendimiento.
+- El evaluador de ataques pondera el beneficio recurrente de los refuerzos continentales además de las bajas esperadas y de los riesgos posteriores. Cuando hay una fuerza muy superior, las bajas representan una proporción menor del ejército y su penalización se ajusta.
+- Se conservan las restricciones de pactos, Fronteras abiertas/cerradas, la planificación de turnos, la estrategia de cercos y la dificultad Normal.
+- Diez pruebas nuevas en `test_cierre_continente_v28.py`, incluyendo el escenario Filipinas 75 / Tonga 13 / California 21, cálculo de probabilidad, incentivo de continente, ataque favorable y restricciones. **284 pruebas aprobadas en GitHub Actions**.
+- La partida de la captura podría haber tenido un pacto o una situación temporal no visible: la corrección aborda el problema demostrado en la valoración estratégica, no permite ataques ilegales.
+
+---
+
 # IA Difícil: estrategia de cercos (7/11/2026)
 
 - Nuevo módulo de planificación de cercos, exclusivo para la dificultad Difícil.
