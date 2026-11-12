@@ -34,6 +34,7 @@
 - **Animaciones opcionales antes de comenzar:** ataques y conquistas (con transición visual del color del defensor al ganador), incorporación de ejércitos/misiles y reagrupamientos. Avisos no modales de canjes de bots en el panel izquierdo. Las rutas, halos y proyectiles de ataque permanecen visibles sin carteles que tapen las fichas.
 - **Bloqueos territoriales:** las guarniciones rodeadas bajo las condiciones del reglamento no pueden recibir refuerzos, pero conservan la posibilidad de atacar.
 - **Bots Difícil con estrategia de cercos:** detectan países enemigos totalmente rodeados por sus territorios y priorizan incorporar el ejército que falta para dejar **al menos 2 en cada vecino**, siempre que el bloqueo pueda completarse y sea estratégicamente útil. También pueden completar el cerco mediante reagrupamientos, evitar quitar unidades indispensables a los países rodeadores y buscar una salida militar cuando ellos mismos están bloqueados. La IA Normal y la regla de bloqueo del motor no se modificaron.
+- **Cierre de continentes (Difícil):** al atacar el último país de un continente, además de la ventaja territorial se valora el bono recurrente de ejércitos de próximas rondas. Las grandes fuerzas no quedan inmóviles por penalizaciones de bajas desproporcionadas: ahora se evalúan probabilidades exactas hasta 96 ejércitos (antes se truncaba en 36). Caso probado: Filipinas con 75 ejércitos contra Tonga con 13, último país enemigo de Oceanía, incluso con amenazas desde California. Se siguen respetando pactos, fronteras y el contexto de turnos. Normal sigue igual.
 - **Pruebas de regresión:** comprobaciones sobre dados, pactos, continentes, misiles, canjes, tarjetas, fronteras e interfaz.
 
 ## 🖥️ Requisitos
@@ -118,7 +119,7 @@ Desde la carpeta `teg_revancha`:
 python -m unittest discover -v -p "test_*.py"
 ```
 
-La versión actual incluye **274 pruebas automatizadas** que comprueban, entre otras cosas, reglas de turnos, conexiones, pactos, misiles, tarjetas, canjes, bloqueos, conquistas y comportamiento de las animaciones. Las pruebas automatizadas no sustituyen las partidas manuales para detectar problemas visuales o de interacción.
+La versión actual incluye **284 pruebas automatizadas** que comprueban, entre otras cosas, reglas de turnos, conexiones, pactos, misiles, tarjetas, canjes, bloqueos, conquistas y comportamiento de las animaciones. Las pruebas automatizadas no sustituyen las partidas manuales para detectar problemas visuales o de interacción.
 
 ### Nota sobre «capitales»
 

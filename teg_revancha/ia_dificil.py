@@ -13,6 +13,7 @@ from estrategia_turnos import LecturaDeTurnos
 from estrategia_remontada import PlanRemontada
 from estrategia_incursiones import IncursionPorTarjeta
 from estrategia_cercos import EstrategiaCerco
+from data import CONTINENTES
 
 
 def _tiradas(n):
@@ -41,15 +42,16 @@ def transiciones_dados(atk,defensa):
 def probabilidad_conquista(atk,defensa,situacion='Clásico'):
     """(Probabilidad de conquista, bajas esperadas del atacante).
 
-    Programa dinámico sobre los ejércitos restantes. Refleja exactamente
-    los dados del motor, incluyendo cuarto dado por doble fuerza, Viento
-    a favor, Nieve y límites de bajas. Para pilas mayores a 36 tropas se
-    aproxima acotando la dimensión a 36 por rendimiento.
+    Programa dinámico sobre los ejércitos restantes. Refleja los dados del
+    motor, incluido el cuarto dado por doble fuerza, Viento a favor y Nieve.
+    Se calculan exactamente pilas de hasta 96 tropas. Las mayores se acotan
+    a 96 para limitar el coste en partidas muy largas; así 75 contra 13
+    NO se evalúa incorrectamente como 36 contra 13.
     """
     if defensa<=0:return 1.0,0.0
     if atk<=1:return 0.0,0.0
-    atk=min(36,atk)
-    defensa=min(36,defensa)
+    atk=min(96,atk)
+    defensa=min(96,defensa)
     dados_a=min(3,atk-1)
     if defensa>=3 and atk>=2*defensa:dados_a=4
     if situacion=='Viento a favor':dados_a=min(4,dados_a+1)
@@ -135,6 +137,24 @@ class EstrategiaDificil:
             if propios_total>=38:valor+=min(28,(propios_total-37)*3)
         return valor
 
+    def _incentivo_cierre_continente(self,destino,jugador,contexto):
+        """Valor de completar el continente (y su ingreso en futuras rondas).
+
+        La evaluación habitual ya reconoce la última provincia con +14, pero
+        ese valor aislado quedaba por debajo del coste de las bajas y del
+        riesgo de un contraataque incluso con una fuerza 75 contra 13.
+        Se añade el beneficio de los refuerzos continentales recurrentes,
+        sin pasar por alto pactos ni situaciones de fronteras.
+        """
+        juego=self.j
+        if destino in juego.condominios:return 0.0
+        cont=juego.tablero[destino]['continente']
+        total=contexto['totales'][cont]
+        propios=contexto['continentes'][cont][jugador.idx]
+        if propios!=total-1 or juego.es_propietario(destino,jugador.idx):
+            return 0.0
+        return 8.0 + CONTINENTES[cont]['bonus']*4.0
+
     def vecinos_amenazantes(self,pais,jugador):
         juego=self.j
         return [q for q in juego.tablero[pais]['fronteras']
@@ -180,8 +200,16 @@ class EstrategiaDificil:
         otros=[v for v in self.vecinos_amenazantes(origen,jugador) if v!=destino]
         mayor_origen=max((juego.tablero[v]['ejercitos'] for v in otros),default=0)
         riesgo_origen=max(0,mayor_origen-(tropas-bajas-3))*.8
-        puntaje=p*valor-bajas*1.7-(1-p)*min(25,defensa)*.6
+        # La pérdida de 12 fichas duele mucho con 20 unidades, pero no
+        # tiene el mismo coste estratégico cuando se parte de 75. No
+        # penalizar ambas situaciones con el mismo coeficiente rígido.
+        costo_bajas=1.25 if tropas>=max(24,2*defensa+8) else 1.7
+        puntaje=p*valor-bajas*costo_bajas-(1-p)*min(25,defensa)*.6
         puntaje-=contragolpe+riesgo_origen
+        # Completar un continente permite obtener refuerzos de forma
+        # recurrente. Es una oportunidad a priorizar, aunque el nuevo
+        # territorio quede inicialmente con una guarnición pequeña.
+        puntaje+=p*self._incentivo_cierre_continente(destino,jugador,ctx)
         # Estimar cómo quedarán ambas guarniciones después de las bajas
         # esperadas y del traslado obligatorio a la nueva conquista.
         # No contamos al país origen como enemigo del destino conquistado.
